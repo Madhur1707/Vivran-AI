@@ -113,6 +113,7 @@ async def transcribe_audio(audio_url: str) -> list[dict]:
                         "diarize": "true",
                         "punctuate": "true",
                         "utterances": "true",
+                        "detect_language": "true",
                     },
                     content=audio_file.read(),
                 )
