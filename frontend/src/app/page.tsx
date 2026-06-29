@@ -449,7 +449,7 @@ function FeaturesGrid() {
             className="text-xs text-muted-foreground uppercase tracking-widest mb-3"
             style={MONO}
           >
-            What Recaply does
+            What Vivran.ai does
           </p>
           <h2
             className="text-[clamp(28px,4vw,42px)] font-bold tracking-tight"
@@ -839,7 +839,7 @@ function FeatureActions() {
             {[
               {
                 label: "Auto-assigned to person",
-                sub: "Recaply links the task to whoever made the commitment — no manual input.",
+                sub: "Vivran.ai links the task to whoever made the commitment — no manual input.",
               },
               {
                 label: "Deadline extracted",
@@ -1600,30 +1600,12 @@ function Footer() {
     <footer className="border-t border-border px-6 py-12">
       <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-4">
         <div>
-          <div className="mb-3 flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-                <path
-                  d="M3 6.5C3 5.12 4.12 4 5.5 4h13C19.88 4 21 5.12 21 6.5v7c0 1.38-1.12 2.5-2.5 2.5H13l-4 4v-4H5.5C4.12 16 3 14.88 3 13.5v-7z"
-                  fill="white"
-                  opacity="0.9"
-                />
-                <path
-                  d="M7 9h10M7 12h6"
-                  stroke="#6366f1"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-            <span className="font-bold" style={BG}>
-              Recaply
-            </span>
+          <div className="mb-3">
+            <img
+              src="/Vivran.ai.jpg"
+              alt="Vivran.ai"
+              className="h-20 rounded"
+            />
           </div>
           <p className="text-sm text-muted-foreground">
             AI meeting intelligence for India
@@ -1700,7 +1682,7 @@ function Footer() {
         </div>
       </div>
       <div className="mx-auto mt-10 max-w-5xl border-t border-border pt-6 text-center text-xs text-muted-foreground">
-        &copy; {new Date().getFullYear()} Recaply. Made in India. All meeting
+        &copy; {new Date().getFullYear()} Vivran.ai. Made in India. All meeting
         data stored in Mumbai.
       </div>
     </footer>

@@ -50,30 +50,12 @@ export function DashboardShell({
         }}
       >
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-lg"
-              style={{
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-                <path
-                  d="M3 6.5C3 5.12 4.12 4 5.5 4h13C19.88 4 21 5.12 21 6.5v7c0 1.38-1.12 2.5-2.5 2.5H13l-4 4v-4H5.5C4.12 16 3 14.88 3 13.5v-7z"
-                  fill="white"
-                  opacity="0.9"
-                />
-                <path
-                  d="M7 9h10M7 12h6"
-                  stroke="#6366f1"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-            <span className="text-lg font-bold" style={BG}>
-              Recaply
-            </span>
+          <Link href="/dashboard" className="flex items-center -ml-4">
+            <img
+              src="/Vivran.ai.jpg"
+              alt="Vivran.ai"
+              className="h-20 rounded"
+            />
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">

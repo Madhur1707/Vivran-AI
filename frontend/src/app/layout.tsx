@@ -16,7 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Recaply — AI Meeting Intelligence",
+  title: "Vivran.ai — AI Meeting Intelligence",
   description:
     "Upload your meeting recording. Get named transcripts, action items, decisions, and automated follow-ups — in 3 minutes.",
 };

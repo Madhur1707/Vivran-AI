@@ -88,17 +88,12 @@ export default function LoginPage() {
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 30% 50%, rgba(99,102,241,0.12) 0%, transparent 60%)" }} />
 
         <div className="relative z-10">
-          <Link href="/" className="flex items-center gap-2.5 mb-16">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-                <path d="M3 6.5C3 5.12 4.12 4 5.5 4h13C19.88 4 21 5.12 21 6.5v7c0 1.38-1.12 2.5-2.5 2.5H13l-4 4v-4H5.5C4.12 16 3 14.88 3 13.5v-7z" fill="white" opacity="0.9" />
-                <path d="M7 9h10M7 12h6" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold text-white tracking-tight" style={BG}>Recaply</span>
+          <Link href="/" className="mb-16 -ml-4">
+            <img
+              src="/Vivran.ai.jpg"
+              alt="Vivran.ai"
+              className="h-20 rounded"
+            />
           </Link>
 
           <h2 className="text-[32px] font-bold text-white leading-[1.15] tracking-tight mb-4" style={BG}>
@@ -145,18 +140,13 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center bg-background px-6 py-12">
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
-          <div className="flex flex-col items-center gap-2 lg:hidden">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
-                <path d="M3 6.5C3 5.12 4.12 4 5.5 4h13C19.88 4 21 5.12 21 6.5v7c0 1.38-1.12 2.5-2.5 2.5H13l-4 4v-4H5.5C4.12 16 3 14.88 3 13.5v-7z" fill="white" opacity="0.9" />
-                <path d="M7 9h10M7 12h6" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight" style={BG}>Recaply</h1>
-            <p className="text-sm text-muted-foreground">AI meeting intelligence for India</p>
+          <div className="flex flex-col items-center gap-3 lg:hidden">
+            <img
+              src="/Vivran.ai.jpg"
+              alt="Vivran.ai"
+              className="h-20 rounded"
+            />
+            <p className="text-sm text-muted-foreground">AI meeting intelligence</p>
           </div>
 
           {/* Desktop heading */}

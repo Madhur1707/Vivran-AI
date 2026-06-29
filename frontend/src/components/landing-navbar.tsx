@@ -11,28 +11,14 @@ export function LandingNavbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-              <path
-                d="M3 6.5C3 5.12 4.12 4 5.5 4h13C19.88 4 21 5.12 21 6.5v7c0 1.38-1.12 2.5-2.5 2.5H13l-4 4v-4H5.5C4.12 16 3 14.88 3 13.5v-7z"
-                fill="white"
-                opacity="0.9"
-              />
-              <path d="M7 9h10M7 12h6" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </div>
-          <span
-            className="text-[17px] font-bold tracking-tight text-foreground"
-            style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}
-          >
-            Recaply
-          </span>
-        </div>
+      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <Link href="/" className="flex items-center flex-shrink-0 -ml-4">
+          <img
+            src="/Vivran.ai.jpg"
+            alt="Vivran.ai"
+            className="h-20 rounded"
+          />
+        </Link>
 
         <div className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((l) => (
