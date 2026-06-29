@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   Loader2,
   Check,
   ArrowLeft,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -149,6 +150,37 @@ function getUniqueSpeakers(transcript: TranscriptSegment[]): string[] {
   return result;
 }
 
+/* ═══ Copy Button ═══ */
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [text]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:opacity-80"
+      style={{
+        background: copied ? "rgba(52,211,153,0.15)" : "rgba(99,102,241,0.1)",
+        color: copied ? "#34d399" : "#818cf8",
+      }}
+    >
+      {copied ? (
+        <>
+          <Check className="h-3 w-3" />
+          Copied!
+        </>
+      ) : (
+        "Copy to clipboard"
+      )}
+    </button>
+  );
+}
+
 /* ═══ Speaker Mapping UI ═══ */
 function SpeakerMappingUI({
   transcript,
@@ -159,7 +191,7 @@ function SpeakerMappingUI({
   transcript: TranscriptSegment[];
   attendees: string[];
   meetingId: string;
-  onMapped: (updated: TranscriptSegment[]) => void;
+  onMapped: (updated: TranscriptSegment[], speakerMap: Record<string, string>) => void;
 }) {
   const allQuotes = getAllSpeakerQuotes(transcript);
   const speakers = Object.keys(allQuotes);
@@ -213,7 +245,7 @@ function SpeakerMappingUI({
         ...seg,
         speaker: speakerMap[seg.speaker] || seg.speaker,
       }));
-      onMapped(updated);
+      onMapped(updated, speakerMap);
     } catch {
       // silent
     } finally {
@@ -525,12 +557,47 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
     meeting.attendees &&
     meeting.attendees.length > 0;
 
-  function handleSpeakersMapped(updated: TranscriptSegment[]) {
-    setMeeting((prev) => ({
-      ...prev,
-      transcript: updated,
-      speakers_mapped: true,
-    }));
+  function handleSpeakersMapped(
+    updated: TranscriptSegment[],
+    speakerMap?: Record<string, string>
+  ) {
+    setMeeting((prev) => {
+      const replaceNames = (text: string) => {
+        if (!speakerMap) return text;
+        let result = text;
+        for (const [old, name] of Object.entries(speakerMap)) {
+          result = result.split(old).join(name);
+        }
+        return result;
+      };
+
+      return {
+        ...prev,
+        transcript: updated,
+        speakers_mapped: true,
+        summary: prev.summary ? replaceNames(prev.summary) : prev.summary,
+        follow_up_email: prev.follow_up_email
+          ? replaceNames(prev.follow_up_email)
+          : prev.follow_up_email,
+        action_items: prev.action_items
+          ? prev.action_items.map((item) => ({
+              ...item,
+              owner: speakerMap?.[item.owner] ?? item.owner,
+              task: replaceNames(item.task),
+            }))
+          : null,
+        decisions: prev.decisions
+          ? prev.decisions.map((d) => ({
+              ...d,
+              text: replaceNames(d.text),
+              context: d.context ? replaceNames(d.context) : d.context,
+            }))
+          : null,
+        open_questions: prev.open_questions
+          ? prev.open_questions.map((q) => replaceNames(q))
+          : null,
+      };
+    });
   }
 
   return (
@@ -673,6 +740,7 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
                 { value: "summary", label: "Summary", icon: Lightbulb },
                 { value: "actions", label: "Action Items", icon: CheckSquare },
                 { value: "questions", label: "Questions", icon: HelpCircle },
+                { value: "email", label: "Follow-up Email", icon: Mail },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -739,31 +807,6 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
                     </>
                   )}
 
-                  {meeting.follow_up_email && (
-                    <>
-                      <Separator className="my-5 opacity-20" />
-                      <p
-                        className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3"
-                        style={{ color: "#818cf8", ...MONO }}
-                      >
-                        Follow-up Email Draft
-                      </p>
-                      <div
-                        className="rounded-xl p-4"
-                        style={{
-                          background: "rgba(255,255,255,0.03)",
-                          border: "1px solid rgba(255,255,255,0.06)",
-                        }}
-                      >
-                        <pre
-                          className="whitespace-pre-wrap text-[13px] text-muted-foreground leading-relaxed"
-                          style={MONO}
-                        >
-                          {meeting.follow_up_email}
-                        </pre>
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
             </TabsContent>
@@ -857,6 +900,45 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
                 ) : (
                   <p className="text-sm text-muted-foreground py-8 text-center">
                     No open questions found.
+                  </p>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="email" className="mt-5">
+              <div
+                className="rounded-2xl border overflow-hidden"
+                style={{
+                  borderColor: "rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.02)",
+                }}
+              >
+                {meeting.follow_up_email ? (
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <p
+                        className="text-[11px] font-bold uppercase tracking-[0.15em]"
+                        style={{ color: "#818cf8", ...MONO }}
+                      >
+                        Follow-up Email Draft
+                      </p>
+                      <CopyButton text={meeting.follow_up_email!} />
+                    </div>
+                    <div
+                      className="rounded-xl p-5"
+                      style={{
+                        background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <p className="whitespace-pre-wrap text-[13px] text-muted-foreground leading-relaxed">
+                        {meeting.follow_up_email}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    No follow-up email generated yet.
                   </p>
                 )}
               </div>

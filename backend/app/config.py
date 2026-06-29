@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_key: str
     deepgram_api_key: str
+    groq_api_key: str
 
     model_config = {"env_file": ".env"}
 

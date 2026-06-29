@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import process, health
+from app.routers import process, health, search
 
 app = FastAPI(title="MeetingMind API", version="0.1.0")
 
@@ -15,3 +15,4 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(process.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
