@@ -34,7 +34,7 @@ Rules:
 - Return ONLY valid JSON, no markdown, no explanation."""
 
 
-async def process_meeting(meeting_id: str, audio_url: str, attendees: list[str]):
+async def process_meeting(meeting_id: str, audio_url: str, attendees: list[str], language: str = "en"):
     from supabase import create_client
 
     supabase = create_client(settings.supabase_url, settings.supabase_service_key)
@@ -44,7 +44,7 @@ async def process_meeting(meeting_id: str, audio_url: str, attendees: list[str])
         supabase.table("meetings").update({"status": "processing"}).eq("id", meeting_id).execute()
 
         print(f"[{meeting_id}] Downloading and transcribing audio...")
-        transcript_segments = await transcribe_audio(audio_url)
+        transcript_segments = await transcribe_audio(audio_url, language)
         print(f"[{meeting_id}] Got {len(transcript_segments)} segments")
 
         transcript_with_speakers = assign_speakers(transcript_segments, attendees)
@@ -76,7 +76,7 @@ async def process_meeting(meeting_id: str, audio_url: str, attendees: list[str])
         supabase.table("meetings").update({"status": "failed"}).eq("id", meeting_id).execute()
 
 
-async def transcribe_audio(audio_url: str) -> list[dict]:
+async def transcribe_audio(audio_url: str, language: str = "en") -> list[dict]:
     tmp_path = None
     try:
         async with httpx.AsyncClient(timeout=300) as client:
@@ -113,7 +113,7 @@ async def transcribe_audio(audio_url: str) -> list[dict]:
                         "diarize": "true",
                         "punctuate": "true",
                         "utterances": "true",
-                        "detect_language": "true",
+                        **({"detect_language": "true"} if language == "multi" else {"language": language}),
                     },
                     content=audio_file.read(),
                 )

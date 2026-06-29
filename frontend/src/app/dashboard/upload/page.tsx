@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Users,
   Mic,
+  Globe,
 } from "lucide-react";
 
 const BG = { fontFamily: "'Bricolage Grotesque', sans-serif" };
@@ -38,6 +39,7 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [language, setLanguage] = useState("en");
 
   function validateFile(f: File): boolean {
     if (!ACCEPTED_TYPES.includes(f.type)) {
@@ -173,6 +175,7 @@ export default function UploadPage() {
             meeting_id: meeting.id,
             audio_url: urlData.publicUrl,
             attendees: filteredAttendees,
+            language,
           }),
         });
       } catch {
@@ -343,6 +346,51 @@ export default function UploadPage() {
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full bg-transparent rounded-xl border border-border px-4 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground/40 focus:border-[rgba(99,102,241,0.4)] transition-colors"
               />
+            </div>
+
+            {/* Language */}
+            <div className="px-5 pb-4 border-b border-border">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(99,102,241,0.08)" }}
+                >
+                  <Globe
+                    className="h-3.5 w-3.5"
+                    style={{ color: "#818cf8" }}
+                  />
+                </div>
+                <p className="text-[13px] font-semibold" style={BG}>
+                  Language
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { code: "en", label: "English" },
+                  { code: "hi", label: "Hindi" },
+                  { code: "multi", label: "Auto-detect" },
+                ].map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => setLanguage(lang.code)}
+                    className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
+                    style={{
+                      background:
+                        language === lang.code
+                          ? "rgba(99,102,241,0.15)"
+                          : "rgba(99,102,241,0.04)",
+                      color:
+                        language === lang.code
+                          ? "#818cf8"
+                          : undefined,
+                      border: `1px solid ${language === lang.code ? "rgba(99,102,241,0.3)" : "rgba(99,102,241,0.08)"}`,
+                    }}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Attendees */}
