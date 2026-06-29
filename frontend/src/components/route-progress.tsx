@@ -8,7 +8,7 @@ export function RouteProgress() {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
   const prevPath = useRef(pathname);
-  const timeout = useRef<ReturnType<typeof setTimeout>>();
+  const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (pathname === prevPath.current) return;
