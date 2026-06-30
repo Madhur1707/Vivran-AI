@@ -237,6 +237,7 @@ export default function UploadPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             meeting_id: meeting.id,
+            workspace_id: membership.workspace_id,
             audio_url: urlData.publicUrl,
             attendees: attendeeNames,
             language,

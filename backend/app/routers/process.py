@@ -10,6 +10,7 @@ router = APIRouter()
 
 class ProcessRequest(BaseModel):
     meeting_id: str
+    workspace_id: str
     audio_url: str
     attendees: list[str]
     language: str = "en"
@@ -22,7 +23,9 @@ class RemapSpeakersRequest(BaseModel):
 
 @router.post("/process")
 async def start_processing(req: ProcessRequest, background_tasks: BackgroundTasks):
-    background_tasks.add_task(process_meeting, req.meeting_id, req.audio_url, req.attendees, req.language)
+    background_tasks.add_task(
+        process_meeting, req.meeting_id, req.workspace_id, req.audio_url, req.attendees, req.language
+    )
     return {"status": "processing", "meeting_id": req.meeting_id}
 
 

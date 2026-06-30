@@ -34,7 +34,9 @@ Rules:
 - Return ONLY valid JSON, no markdown, no explanation."""
 
 
-async def process_meeting(meeting_id: str, audio_url: str, attendees: list[str], language: str = "en"):
+async def process_meeting(
+    meeting_id: str, workspace_id: str, audio_url: str, attendees: list[str], language: str = "en"
+):
     from supabase import create_client
 
     supabase = create_client(settings.supabase_url, settings.supabase_service_key)
@@ -68,6 +70,14 @@ async def process_meeting(meeting_id: str, audio_url: str, attendees: list[str],
             "open_questions": analysis.get("open_questions"),
             "follow_up_email": analysis.get("follow_up_email"),
         }).eq("id", meeting_id).execute()
+
+        try:
+            print(f"[{meeting_id}] Indexing transcript for cross-meeting search...")
+            index_meeting_chunks(supabase, meeting_id, workspace_id, transcript_with_speakers)
+        except Exception:
+            print(f"[{meeting_id}] Chunk indexing failed (meeting itself still completed):")
+            traceback.print_exc()
+
         print(f"[{meeting_id}] Completed successfully")
 
     except Exception as e:
@@ -186,3 +196,58 @@ def assign_speakers(segments: list[dict], attendees: list[str]) -> list[dict]:
         seg["speaker"] = f"Speaker {speaker_id + 1}"
 
     return segments
+
+
+CHUNK_WORD_TARGET = 150
+
+
+def chunk_transcript(segments: list[dict]) -> list[dict]:
+    """Group consecutive utterances into ~150-word chunks for full-text search."""
+    chunks = []
+    current: list[dict] = []
+    word_count = 0
+
+    def flush():
+        if not current:
+            return
+        chunks.append({
+            "speaker": current[0]["speaker"],
+            "start_time": current[0]["start"],
+            "end_time": current[-1]["end"],
+            "text": "\n".join(f"{seg['speaker']}: {seg['text']}" for seg in current),
+        })
+
+    for seg in segments:
+        if not seg["text"]:
+            continue
+        current.append(seg)
+        word_count += len(seg["text"].split())
+        if word_count >= CHUNK_WORD_TARGET:
+            flush()
+            current = []
+            word_count = 0
+
+    flush()
+    return chunks
+
+
+def index_meeting_chunks(supabase, meeting_id: str, workspace_id: str, segments: list[dict]) -> None:
+    supabase.table("meeting_chunks").delete().eq("meeting_id", meeting_id).execute()
+
+    chunks = chunk_transcript(segments)
+    if not chunks:
+        return
+
+    rows = [
+        {
+            "meeting_id": meeting_id,
+            "workspace_id": workspace_id,
+            "chunk_index": i,
+            "speaker": chunk["speaker"],
+            "start_time": chunk["start_time"],
+            "end_time": chunk["end_time"],
+            "text": chunk["text"],
+        }
+        for i, chunk in enumerate(chunks)
+    ]
+    supabase.table("meeting_chunks").insert(rows).execute()
