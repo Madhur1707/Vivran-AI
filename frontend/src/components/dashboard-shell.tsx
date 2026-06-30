@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -10,7 +11,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Upload, Search, LogOut } from "lucide-react";
+import {
+  LayoutDashboard,
+  Upload,
+  Search,
+  LogOut,
+  Users,
+  Loader2,
+} from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { User } from "@supabase/supabase-js";
 
@@ -20,6 +28,7 @@ const navItems = [
   { href: "/dashboard", label: "Meetings", icon: LayoutDashboard },
   { href: "/dashboard/upload", label: "Upload", icon: Upload },
   { href: "/dashboard/search", label: "Search", icon: Search },
+  { href: "/dashboard/team", label: "Team", icon: Users },
 ];
 
 export function DashboardShell({
@@ -31,8 +40,10 @@ export function DashboardShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
+    setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
@@ -86,7 +97,7 @@ export function DashboardShell({
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <DropdownMenu>
-              <DropdownMenuTrigger className="relative flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent">
+              <DropdownMenuTrigger className="relative flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent cursor-pointer">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback
                     className="text-xs font-semibold"
@@ -99,16 +110,24 @@ export function DashboardShell({
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="min-w-64">
                 <DropdownMenuItem
-                  className="text-xs text-muted-foreground"
+                  className="text-xs text-muted-foreground whitespace-normal break-all"
                   disabled
                 >
                   {user.email}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="cursor-pointer"
+                >
+                  {signingOut ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogOut className="mr-2 h-4 w-4" />
+                  )}
+                  {signingOut ? "Signing out..." : "Sign out"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -119,6 +138,23 @@ export function DashboardShell({
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-8">
         {children}
       </main>
+
+      {signingOut && (
+        <div
+          className="fixed inset-0 z-100 flex items-center justify-center backdrop-blur-sm"
+          style={{ background: "rgba(0,0,0,0.6)" }}
+        >
+          <div className="flex flex-col items-center gap-3">
+            <Loader2
+              className="h-6 w-6 animate-spin"
+              style={{ color: "#d4d4d8" }}
+            />
+            <p className="text-[13px] text-muted-foreground" style={BG}>
+              Signing out...
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

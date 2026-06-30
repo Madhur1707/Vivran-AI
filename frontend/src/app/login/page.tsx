@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { normalizePhone } from "@/lib/phone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ export default function LoginPage() {
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [signupPhone, setSignupPhone] = useState("");
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -66,6 +68,7 @@ export default function LoginPage() {
       options: {
         data: {
           full_name: signupName,
+          phone: signupPhone.trim() ? normalizePhone(signupPhone) : null,
         },
       },
     });
@@ -193,6 +196,10 @@ export default function LoginPage() {
                     <div className="space-y-2">
                       <Label htmlFor="signup-email">Email</Label>
                       <Input id="signup-email" type="email" placeholder="you@company.com" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-phone">WhatsApp number <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                      <Input id="signup-phone" type="tel" placeholder="+91 98765 43210" value={signupPhone} onChange={(e) => setSignupPhone(e.target.value)} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-password">Password</Label>

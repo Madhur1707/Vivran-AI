@@ -32,6 +32,8 @@ export interface Meeting {
   follow_up_email: string | null;
   speakers_mapped: boolean | null;
   attendee_emails: Record<string, string> | null;
+  attendee_phones: Record<string, string> | null;
   email_sent: boolean | null;
   email_sent_to: string[] | null;
+  workspace_id: string | null;
 }

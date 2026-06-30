@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: "Vivran.ai — AI Meeting Intelligence",
   description:
     "Upload your meeting recording. Get named transcripts, action items, decisions, and automated follow-ups — in 3 minutes.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

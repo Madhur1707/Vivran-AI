@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { normalizePhone } from "@/lib/phone";
 import { toast } from "sonner";
 import {
   Upload,
@@ -15,6 +16,7 @@ import {
   Mic,
   Globe,
   Mail,
+  Phone,
 } from "lucide-react";
 
 const BG = { fontFamily: "'Bricolage Grotesque', sans-serif" };
@@ -43,10 +45,11 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [attendees, setAttendees] = useState<
-    { name: string; email: string }[]
+    { name: string; email: string; phone: string }[]
   >([]);
   const [draftName, setDraftName] = useState("");
   const [draftEmail, setDraftEmail] = useState("");
+  const [draftPhone, setDraftPhone] = useState("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
@@ -95,10 +98,15 @@ export default function UploadPage() {
     if (!draftName.trim()) return;
     setAttendees([
       ...attendees,
-      { name: draftName.trim(), email: draftEmail.trim() },
+      {
+        name: draftName.trim(),
+        email: draftEmail.trim(),
+        phone: draftPhone.trim() ? normalizePhone(draftPhone) : "",
+      },
     ]);
     setDraftName("");
     setDraftEmail("");
+    setDraftPhone("");
   }
 
   function removeAttendee(index: number) {
@@ -127,7 +135,14 @@ export default function UploadPage() {
 
     // Include a pending draft name the user typed but didn't click "Add" for
     const finalAttendees = draftName.trim()
-      ? [...attendees, { name: draftName.trim(), email: draftEmail.trim() }]
+      ? [
+        ...attendees,
+        {
+          name: draftName.trim(),
+          email: draftEmail.trim(),
+          phone: draftPhone.trim() ? normalizePhone(draftPhone) : "",
+        },
+      ]
       : attendees;
 
     if (finalAttendees.length === 0) {
@@ -137,9 +152,13 @@ export default function UploadPage() {
 
     const attendeeNames = finalAttendees.map((a) => a.name);
     const attendeeEmails: Record<string, string> = {};
+    const attendeePhones: Record<string, string> = {};
     for (const a of finalAttendees) {
       if (a.email) {
         attendeeEmails[a.name] = a.email;
+      }
+      if (a.phone) {
+        attendeePhones[a.name] = a.phone;
       }
     }
 
@@ -154,6 +173,18 @@ export default function UploadPage() {
 
       if (!user) {
         toast.error("Please sign in again.");
+        return;
+      }
+
+      const { data: membership } = await supabase
+        .from("workspace_members")
+        .select("workspace_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!membership) {
+        toast.error("Could not find your workspace. Please re-login.");
+        setUploading(false);
         return;
       }
 
@@ -180,12 +211,14 @@ export default function UploadPage() {
         .from("meetings")
         .insert({
           user_id: user.id,
+          workspace_id: membership.workspace_id,
           title: title || file.name,
           status: "queued",
           audio_url: urlData.publicUrl,
           audio_path: filePath,
           attendees: attendeeNames,
           attendee_emails: attendeeEmails,
+          attendee_phones: attendeePhones,
         })
         .select("id")
         .single();
@@ -224,7 +257,14 @@ export default function UploadPage() {
   }
 
   const filledAttendees = draftName.trim()
-    ? [...attendees, { name: draftName.trim(), email: draftEmail.trim() }]
+    ? [
+      ...attendees,
+      {
+        name: draftName.trim(),
+        email: draftEmail.trim(),
+        phone: draftPhone.trim() ? normalizePhone(draftPhone) : "",
+      },
+    ]
     : attendees;
   const isReady = !!file && !!title.trim() && filledAttendees.length > 0;
   const languageLabel =
@@ -391,7 +431,7 @@ export default function UploadPage() {
               </div>
 
               {/* Quick-add row */}
-              <div className="flex gap-1.5 mb-2.5">
+              <div className="flex gap-1.5 mb-1.5">
                 <input
                   placeholder="Attendee name"
                   value={draftName}
@@ -399,17 +439,6 @@ export default function UploadPage() {
                   onKeyDown={handleDraftKeyDown}
                   className="flex-1 bg-transparent rounded-lg border border-border px-2.5 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 focus:border-[rgba(255,255,255,0.4)] transition-colors min-w-0"
                 />
-                <div className="flex-1 flex items-center gap-1 rounded-lg border border-border px-2 focus-within:border-[rgba(255,255,255,0.4)] transition-colors min-w-0">
-                  <Mail className="h-3 w-3 shrink-0 text-muted-foreground/40" />
-                  <input
-                    type="email"
-                    placeholder="Email (optional)"
-                    value={draftEmail}
-                    onChange={(e) => setDraftEmail(e.target.value)}
-                    onKeyDown={handleDraftKeyDown}
-                    className="flex-1 bg-transparent py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 min-w-0"
-                  />
-                </div>
                 <button
                   type="button"
                   onClick={addAttendee}
@@ -423,10 +452,34 @@ export default function UploadPage() {
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
+              <div className="flex gap-1.5 mb-2.5">
+                <div className="flex-1 flex items-center gap-1 rounded-lg border border-border px-2 focus-within:border-[rgba(255,255,255,0.4)] transition-colors min-w-0">
+                  <Mail className="h-3 w-3 shrink-0 text-muted-foreground/40" />
+                  <input
+                    type="email"
+                    placeholder="Email (optional)"
+                    value={draftEmail}
+                    onChange={(e) => setDraftEmail(e.target.value)}
+                    onKeyDown={handleDraftKeyDown}
+                    className="flex-1 bg-transparent py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 min-w-0"
+                  />
+                </div>
+                <div className="flex-1 flex items-center gap-1 rounded-lg border border-border px-2 focus-within:border-[rgba(255,255,255,0.4)] transition-colors min-w-0">
+                  <Phone className="h-3 w-3 shrink-0 text-muted-foreground/40" />
+                  <input
+                    type="tel"
+                    placeholder="WhatsApp number (optional)"
+                    value={draftPhone}
+                    onChange={(e) => setDraftPhone(e.target.value)}
+                    onKeyDown={handleDraftKeyDown}
+                    className="flex-1 bg-transparent py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 min-w-0"
+                  />
+                </div>
+              </div>
 
               {/* Chips — wrap horizontally instead of growing the page */}
               {attendees.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1">
+                <div className="flex flex-wrap gap-1.5 max-h-35 overflow-y-auto pr-1">
                   {attendees.map((attendee, i) => (
                     <span
                       key={i}
@@ -440,6 +493,9 @@ export default function UploadPage() {
                       {attendee.name}
                       {attendee.email && (
                         <Mail className="h-2.5 w-2.5 text-muted-foreground/50" />
+                      )}
+                      {attendee.phone && (
+                        <Phone className="h-2.5 w-2.5 text-muted-foreground/50" />
                       )}
                       <button
                         type="button"
@@ -556,7 +612,7 @@ export default function UploadPage() {
                   None added yet
                 </span>
               ) : (
-                <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-37.5 overflow-y-auto pr-1">
                   {filledAttendees.map((a, i) => (
                     <div key={i} className="flex items-center gap-2.5">
                       <div
@@ -573,21 +629,31 @@ export default function UploadPage() {
                           .toUpperCase()
                           .slice(0, 2)}
                       </div>
-                      <span className="text-[12px] font-medium truncate shrink-0 max-w-[40%]">
+                      <span className="text-[12px] font-medium truncate shrink-0 max-w-[30%]">
                         {a.name}
                       </span>
-                      {a.email ? (
-                        <span
-                          className="text-[11px] text-muted-foreground truncate"
-                          style={MONO}
-                        >
-                          {a.email}
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground/40 italic">
-                          no email — won&apos;t get follow-up
-                        </span>
-                      )}
+                      <div className="flex flex-col min-w-0 flex-1">
+                        {a.email ? (
+                          <span
+                            className="text-[11px] text-muted-foreground truncate"
+                            style={MONO}
+                          >
+                            {a.email}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground/40 italic">
+                            no email — won&apos;t get follow-up
+                          </span>
+                        )}
+                        {a.phone && (
+                          <span
+                            className="text-[10px] text-muted-foreground/70 truncate"
+                            style={MONO}
+                          >
+                            {a.phone}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
