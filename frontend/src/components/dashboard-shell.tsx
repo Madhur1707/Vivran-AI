@@ -71,9 +71,9 @@ export function DashboardShell({
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150"
                   style={{
                     background: isActive
-                      ? "rgba(99,102,241,0.1)"
+                      ? "rgba(255,255,255,0.1)"
                       : "transparent",
-                    color: isActive ? "#818cf8" : undefined,
+                    color: isActive ? "#d4d4d8" : undefined,
                   }}
                 >
                   <item.icon className="h-4 w-4" />
@@ -91,8 +91,8 @@ export function DashboardShell({
                   <AvatarFallback
                     className="text-xs font-semibold"
                     style={{
-                      background: "rgba(99,102,241,0.15)",
-                      color: "#818cf8",
+                      background: "rgba(255,255,255,0.15)",
+                      color: "#d4d4d8",
                     }}
                   >
                     {initials}

@@ -26,11 +26,11 @@ const BG = { fontFamily: "'Bricolage Grotesque', sans-serif" };
 const MONO = { fontFamily: "'JetBrains Mono', monospace" };
 
 const AVATAR_COLORS: Record<string, string> = {
-  Rahul: "#6366f1",
-  Priya: "#a78bfa",
+  Rahul: "#e4e4e7",
+  Priya: "#a1a1aa",
   Amit: "#f472b6",
   Neha: "#34d399",
-  Vikram: "#818cf8",
+  Vikram: "#d4d4d8",
 };
 const INITIALS: Record<string, string> = {
   Rahul: "RA",
@@ -77,7 +77,7 @@ function HeroSection() {
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px)",
+            "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
           backgroundSize: "60px 60px",
         }}
       />
@@ -89,8 +89,8 @@ function HeroSection() {
             <div
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium mb-6 border"
               style={{
-                background: "rgba(99,102,241,0.08)",
-                borderColor: "rgba(99,102,241,0.25)",
+                background: "rgba(255,255,255,0.08)",
+                borderColor: "rgba(255,255,255,0.25)",
                 color: "#a5b4fc",
               }}
             >
@@ -107,7 +107,7 @@ function HeroSection() {
               <span
                 style={{
                   background:
-                    "linear-gradient(135deg, #818cf8 0%, #c084fc 100%)",
+                    "linear-gradient(135deg, #d4d4d8 0%, #e4e4e7 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}
@@ -124,16 +124,16 @@ function HeroSection() {
             <div className="flex flex-wrap items-center gap-3 mb-5">
               <Link
                 href="/login"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-white transition-all duration-150 hover:opacity-90 hover:scale-[1.02] shadow-lg"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-black transition-all duration-150 hover:opacity-90 hover:scale-[1.02] shadow-lg"
                 style={{
-                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                  boxShadow: "0 0 24px rgba(99,102,241,0.35)",
+                  background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)",
+                  boxShadow: "0 0 24px rgba(255,255,255,0.35)",
                 }}
               >
                 Upload your first meeting
                 <ChevronRight size={15} />
               </Link>
-              <button className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-foreground border border-border hover:border-[rgba(99,102,241,0.4)] hover:bg-[rgba(99,102,241,0.06)] transition-all duration-150">
+              <button className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-foreground border border-border hover:border-[rgba(255,255,255,0.4)] hover:bg-[rgba(255,255,255,0.06)] transition-all duration-150">
                 <Play
                   size={13}
                   className="fill-current text-muted-foreground"
@@ -152,7 +152,7 @@ function HeroSection() {
                   {i > 0 && (
                     <span className="w-1 h-1 rounded-full bg-border inline-block" />
                   )}
-                  <CheckCircle size={11} className="text-[#6366f1]" />
+                  <CheckCircle size={11} className="text-[#e4e4e7]" />
                   {t}
                 </span>
               ))}
@@ -165,7 +165,7 @@ function HeroSection() {
               className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-[80%] h-40 pointer-events-none"
               style={{
                 background:
-                  "radial-gradient(ellipse at center, rgba(99,102,241,0.22) 0%, transparent 70%)",
+                  "radial-gradient(ellipse at center, rgba(255,255,255,0.22) 0%, transparent 70%)",
                 filter: "blur(20px)",
               }}
             />
@@ -174,7 +174,7 @@ function HeroSection() {
               className="relative rounded-xl border overflow-hidden shadow-2xl"
               style={{
                 borderColor: "rgba(255,255,255,0.10)",
-                background: "#111118",
+                background: "#0a0a0c",
                 boxShadow:
                   "0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05)",
               }}
@@ -183,7 +183,7 @@ function HeroSection() {
                 className="flex items-center gap-3 px-4 py-2.5 border-b"
                 style={{
                   borderColor: "rgba(255,255,255,0.07)",
-                  background: "#0d0d14",
+                  background: "#08080a",
                 }}
               >
                 <div className="flex gap-1.5">
@@ -209,7 +209,7 @@ function HeroSection() {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p
-                      className="text-[12px] font-semibold text-[#f1f1f3]"
+                      className="text-[12px] font-semibold text-[#ffffff]"
                       style={BG}
                     >
                       Q2 Sync — Product &amp; Sales
@@ -221,8 +221,8 @@ function HeroSection() {
                   <div
                     className="px-2 py-0.5 rounded-full text-[9px] font-medium"
                     style={{
-                      background: "rgba(99,102,241,0.12)",
-                      color: "#818cf8",
+                      background: "rgba(255,255,255,0.12)",
+                      color: "#d4d4d8",
                     }}
                   >
                     Done
@@ -316,8 +316,8 @@ function HeroSection() {
                     <span
                       className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
                       style={{
-                        background: "rgba(99,102,241,0.12)",
-                        color: "#818cf8",
+                        background: "rgba(255,255,255,0.12)",
+                        color: "#d4d4d8",
                       }}
                     >
                       4 open
@@ -328,13 +328,13 @@ function HeroSection() {
                       assignee: "Rahul",
                       task: "Send pricing deck to client",
                       due: "Fri",
-                      color: "#818cf8",
+                      color: "#d4d4d8",
                     },
                     {
                       assignee: "Priya",
                       task: "Update roadmap with Q3 changes",
                       due: "Mon",
-                      color: "#a78bfa",
+                      color: "#a1a1aa",
                     },
                     {
                       assignee: "Amit",
@@ -462,13 +462,13 @@ function FeaturesGrid() {
           {features.map((f) => (
             <div
               key={f.title}
-              className="p-6 rounded-xl border border-border bg-card transition-all duration-200 hover:border-[rgba(99,102,241,0.3)] group"
+              className="p-6 rounded-xl border border-border bg-card transition-all duration-200 hover:border-[rgba(255,255,255,0.3)] group"
             >
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center mb-4 transition-colors duration-200 group-hover:bg-[rgba(99,102,241,0.15)]"
-                style={{ background: "rgba(99,102,241,0.1)" }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center mb-4 transition-colors duration-200 group-hover:bg-[rgba(255,255,255,0.15)]"
+                style={{ background: "rgba(255,255,255,0.1)" }}
               >
-                <f.icon size={17} className="text-[#818cf8]" />
+                <f.icon size={17} className="text-[#d4d4d8]" />
               </div>
               <h3
                 className="text-[15px] font-semibold text-foreground mb-2"
@@ -494,7 +494,7 @@ function FeatureSpeaker() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div>
           <p
-            className="text-[11px] font-bold uppercase tracking-[0.18em] mb-4 text-[#6366f1]"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] mb-4 text-[#e4e4e7]"
             style={MONO}
           >
             Speaker Intelligence
@@ -523,9 +523,9 @@ function FeatureSpeaker() {
               <div key={pt.label} className="flex items-start gap-3">
                 <div
                   className="w-5 h-5 rounded-full shrink-0 mt-0.5 flex items-center justify-center"
-                  style={{ background: "rgba(99,102,241,0.15)" }}
+                  style={{ background: "rgba(255,255,255,0.15)" }}
                 >
-                  <CheckCircle size={11} style={{ color: "#818cf8" }} />
+                  <CheckCircle size={11} style={{ color: "#d4d4d8" }} />
                 </div>
                 <div>
                   <span className="text-[14px] font-semibold text-foreground">
@@ -545,13 +545,13 @@ function FeatureSpeaker() {
             className="absolute -inset-8 rounded-3xl pointer-events-none"
             style={{
               background:
-                "radial-gradient(ellipse at 60% 50%, rgba(99,102,241,0.12) 0%, transparent 70%)",
+                "radial-gradient(ellipse at 60% 50%, rgba(255,255,255,0.12) 0%, transparent 70%)",
             }}
           />
           <div
             className="relative rounded-2xl border overflow-hidden"
             style={{
-              background: "#111118",
+              background: "#0a0a0c",
               borderColor: "rgba(255,255,255,0.09)",
               boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
             }}
@@ -560,11 +560,11 @@ function FeatureSpeaker() {
               className="flex items-center justify-between px-5 py-3.5 border-b"
               style={{
                 borderColor: "rgba(255,255,255,0.06)",
-                background: "#0d0d14",
+                background: "#08080a",
               }}
             >
               <span
-                className="text-[12px] font-semibold text-[#f1f1f3]"
+                className="text-[12px] font-semibold text-[#ffffff]"
                 style={BG}
               >
                 Transcript · Q3 Strategy Call
@@ -665,13 +665,13 @@ function FeatureActions() {
             className="absolute -inset-8 rounded-3xl pointer-events-none"
             style={{
               background:
-                "radial-gradient(ellipse at 40% 50%, rgba(99,102,241,0.10) 0%, transparent 70%)",
+                "radial-gradient(ellipse at 40% 50%, rgba(255,255,255,0.10) 0%, transparent 70%)",
             }}
           />
           <div
             className="relative rounded-2xl border overflow-hidden"
             style={{
-              background: "#111118",
+              background: "#0a0a0c",
               borderColor: "rgba(255,255,255,0.09)",
               boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
             }}
@@ -680,11 +680,11 @@ function FeatureActions() {
               className="flex items-center justify-between px-5 py-3.5 border-b"
               style={{
                 borderColor: "rgba(255,255,255,0.06)",
-                background: "#0d0d14",
+                background: "#08080a",
               }}
             >
               <span
-                className="text-[12px] font-semibold text-[#f1f1f3]"
+                className="text-[12px] font-semibold text-[#ffffff]"
                 style={BG}
               >
                 Action Items · Q3 Strategy
@@ -692,8 +692,8 @@ function FeatureActions() {
               <span
                 className="text-[10px] px-2 py-0.5 rounded-full"
                 style={{
-                  background: "rgba(99,102,241,0.12)",
-                  color: "#818cf8",
+                  background: "rgba(255,255,255,0.12)",
+                  color: "#d4d4d8",
                   ...MONO,
                 }}
               >
@@ -754,7 +754,7 @@ function FeatureActions() {
                 return (
                   <div
                     key={item.who + item.task}
-                    className="group flex items-start gap-3 p-3.5 rounded-xl border transition-all duration-150 hover:border-[rgba(99,102,241,0.25)]"
+                    className="group flex items-start gap-3 p-3.5 rounded-xl border transition-all duration-150 hover:border-[rgba(255,255,255,0.25)]"
                     style={{
                       background: "rgba(255,255,255,0.025)",
                       borderColor: "rgba(255,255,255,0.07)",
@@ -817,14 +817,14 @@ function FeatureActions() {
               <span className="text-[11px] text-[#a1a1aa]">
                 Reminder emails sent automatically
               </span>
-              <Bell size={12} style={{ color: "rgba(99,102,241,0.6)" }} />
+              <Bell size={12} style={{ color: "rgba(255,255,255,0.6)" }} />
             </div>
           </div>
         </div>
 
         <div className="order-1 lg:order-2">
           <p
-            className="text-[11px] font-bold uppercase tracking-[0.18em] mb-4 text-[#6366f1]"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] mb-4 text-[#e4e4e7]"
             style={MONO}
           >
             Never Drop the Ball
@@ -853,9 +853,9 @@ function FeatureActions() {
               <div key={pt.label} className="flex items-start gap-3">
                 <div
                   className="w-5 h-5 rounded-full shrink-0 mt-0.5 flex items-center justify-center"
-                  style={{ background: "rgba(99,102,241,0.15)" }}
+                  style={{ background: "rgba(255,255,255,0.15)" }}
                 >
-                  <CheckCircle size={11} style={{ color: "#818cf8" }} />
+                  <CheckCircle size={11} style={{ color: "#d4d4d8" }} />
                 </div>
                 <div>
                   <span className="text-[14px] font-semibold text-foreground">
@@ -881,7 +881,7 @@ function FeatureSearch() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div>
           <p
-            className="text-[11px] font-bold uppercase tracking-[0.18em] mb-4 text-[#6366f1]"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] mb-4 text-[#e4e4e7]"
             style={MONO}
           >
             Meeting Memory
@@ -912,9 +912,9 @@ function FeatureSearch() {
               <div key={pt.label} className="flex items-start gap-3">
                 <div
                   className="w-5 h-5 rounded-full shrink-0 mt-0.5 flex items-center justify-center"
-                  style={{ background: "rgba(99,102,241,0.15)" }}
+                  style={{ background: "rgba(255,255,255,0.15)" }}
                 >
-                  <CheckCircle size={11} style={{ color: "#818cf8" }} />
+                  <CheckCircle size={11} style={{ color: "#d4d4d8" }} />
                 </div>
                 <div>
                   <span className="text-[14px] font-semibold text-foreground">
@@ -934,29 +934,29 @@ function FeatureSearch() {
             className="absolute -inset-8 rounded-3xl pointer-events-none"
             style={{
               background:
-                "radial-gradient(ellipse at 60% 50%, rgba(99,102,241,0.12) 0%, transparent 70%)",
+                "radial-gradient(ellipse at 60% 50%, rgba(255,255,255,0.12) 0%, transparent 70%)",
             }}
           />
           <div className="relative space-y-3">
             <div
               className="rounded-2xl border overflow-hidden"
               style={{
-                background: "#111118",
-                borderColor: "rgba(99,102,241,0.3)",
+                background: "#0a0a0c",
+                borderColor: "rgba(255,255,255,0.3)",
                 boxShadow:
-                  "0 0 0 3px rgba(99,102,241,0.08), 0 24px 60px rgba(0,0,0,0.5)",
+                  "0 0 0 3px rgba(255,255,255,0.08), 0 24px 60px rgba(0,0,0,0.5)",
               }}
             >
               <div className="flex items-center gap-3 px-5 py-4">
-                <Search size={16} style={{ color: "#6366f1", flexShrink: 0 }} />
-                <span className="text-[14px] text-[#f1f1f3] flex-1">
+                <Search size={16} style={{ color: "#e4e4e7", flexShrink: 0 }} />
+                <span className="text-[14px] text-[#ffffff] flex-1">
                   What did we decide about the Bangalore office?
                 </span>
                 <div
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium"
                   style={{
-                    background: "rgba(99,102,241,0.12)",
-                    color: "#818cf8",
+                    background: "rgba(255,255,255,0.12)",
+                    color: "#d4d4d8",
                     ...MONO,
                   }}
                 >
@@ -968,7 +968,7 @@ function FeatureSearch() {
             <div
               className="rounded-2xl border overflow-hidden"
               style={{
-                background: "#111118",
+                background: "#0a0a0c",
                 borderColor: "rgba(255,255,255,0.09)",
                 boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
               }}
@@ -977,7 +977,7 @@ function FeatureSearch() {
                 className="px-5 py-3.5 border-b flex items-center gap-2"
                 style={{
                   borderColor: "rgba(255,255,255,0.06)",
-                  background: "#0d0d14",
+                  background: "#08080a",
                 }}
               >
                 <Search size={12} style={{ color: "rgba(161,161,170,0.5)" }} />
@@ -989,17 +989,17 @@ function FeatureSearch() {
                 <div
                   className="p-4 rounded-xl border-l-2"
                   style={{
-                    background: "rgba(99,102,241,0.07)",
-                    borderColor: "#6366f1",
+                    background: "rgba(255,255,255,0.07)",
+                    borderColor: "#e4e4e7",
                   }}
                 >
                   <p
                     className="text-[11px] font-semibold uppercase tracking-widest mb-2"
-                    style={{ color: "#818cf8", ...MONO }}
+                    style={{ color: "#d4d4d8", ...MONO }}
                   >
                     AI Answer
                   </p>
-                  <p className="text-[13px] text-[#f1f1f3] leading-relaxed">
+                  <p className="text-[13px] text-[#ffffff] leading-relaxed">
                     The team decided to{" "}
                     <span
                       className="font-semibold"
@@ -1027,12 +1027,12 @@ function FeatureSearch() {
                   <div className="flex items-start gap-3">
                     <div
                       className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5"
-                      style={{ background: "rgba(99,102,241,0.1)" }}
+                      style={{ background: "rgba(255,255,255,0.1)" }}
                     >
-                      <FileText size={14} style={{ color: "#818cf8" }} />
+                      <FileText size={14} style={{ color: "#d4d4d8" }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-[#f1f1f3] truncate">
+                      <p className="text-[13px] font-semibold text-[#ffffff] truncate">
                         Leadership Sync · September 2024
                       </p>
                       <div className="flex items-center gap-3 mt-1.5 flex-wrap">
@@ -1058,7 +1058,7 @@ function FeatureSearch() {
                         </span>
                         <span
                           className="text-[11px]"
-                          style={{ color: "#818cf8", ...MONO }}
+                          style={{ color: "#d4d4d8", ...MONO }}
                         >
                           00:14:22
                         </span>
@@ -1115,7 +1115,7 @@ function ProblemSection() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-14">
           <p
-            className="text-[11px] font-bold uppercase tracking-[0.2em] mb-4 text-[#6366f1]"
+            className="text-[11px] font-bold uppercase tracking-[0.2em] mb-4 text-[#e4e4e7]"
             style={MONO}
           >
             The Problem
@@ -1157,13 +1157,13 @@ function ProblemSection() {
           <div
             className="inline-flex items-start gap-4 px-8 py-6 rounded-xl border max-w-2xl"
             style={{
-              background: "rgba(99,102,241,0.05)",
-              borderColor: "rgba(99,102,241,0.2)",
+              background: "rgba(255,255,255,0.05)",
+              borderColor: "rgba(255,255,255,0.2)",
             }}
           >
             <span
               className="text-3xl leading-none mt-0.5"
-              style={{ color: "rgba(99,102,241,0.5)" }}
+              style={{ color: "rgba(255,255,255,0.5)" }}
             >
               &ldquo;
             </span>
@@ -1172,7 +1172,7 @@ function ProblemSection() {
               style={{ color: "#c7d2fe" }}
             >
               Indian employees lose{" "}
-              <span style={{ color: "#818cf8" }}>4.5 hours weekly</span> to
+              <span style={{ color: "#d4d4d8" }}>4.5 hours weekly</span> to
               meetings with no documented outcomes.
             </p>
           </div>
@@ -1215,7 +1215,7 @@ function HowItWorks() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <p
-            className="text-[11px] font-bold uppercase tracking-[0.2em] mb-4 text-[#6366f1]"
+            className="text-[11px] font-bold uppercase tracking-[0.2em] mb-4 text-[#e4e4e7]"
             style={MONO}
           >
             How it works
@@ -1232,19 +1232,19 @@ function HowItWorks() {
             <div key={step.num} className="relative flex flex-col">
               <div
                 className="absolute -top-2 right-3 text-[72px] font-black leading-none select-none pointer-events-none"
-                style={{ ...BG, color: "rgba(99,102,241,0.07)" }}
+                style={{ ...BG, color: "rgba(255,255,255,0.07)" }}
               >
                 {step.num}
               </div>
               <div className="relative p-6 rounded-xl border border-border bg-card flex-1 shadow-sm">
                 <div
                   className="w-9 h-9 rounded-lg flex items-center justify-center mb-4"
-                  style={{ background: "rgba(99,102,241,0.1)" }}
+                  style={{ background: "rgba(255,255,255,0.1)" }}
                 >
-                  <step.icon size={17} style={{ color: "#6366f1" }} />
+                  <step.icon size={17} style={{ color: "#e4e4e7" }} />
                 </div>
                 <p
-                  className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1 text-[#6366f1]"
+                  className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1 text-[#e4e4e7]"
                   style={MONO}
                 >
                   Step {step.num}
@@ -1261,7 +1261,7 @@ function HowItWorks() {
               </div>
               {i < steps.length - 1 && (
                 <div className="hidden lg:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 items-center justify-center w-7 h-7 rounded-full border border-border bg-background shadow-sm">
-                  <ArrowRight size={13} style={{ color: "#6366f1" }} />
+                  <ArrowRight size={13} style={{ color: "#e4e4e7" }} />
                 </div>
               )}
             </div>
@@ -1311,7 +1311,7 @@ function TestimonialsSection() {
             >
               <span
                 className="text-4xl font-bold leading-none"
-                style={{ color: "rgba(99,102,241,0.2)" }}
+                style={{ color: "rgba(255,255,255,0.2)" }}
               >
                 &ldquo;
               </span>
@@ -1322,8 +1322,8 @@ function TestimonialsSection() {
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
                   style={{
-                    background: "rgba(99,102,241,0.1)",
-                    color: "#818cf8",
+                    background: "rgba(255,255,255,0.1)",
+                    color: "#d4d4d8",
                   }}
                 >
                   {t.name
@@ -1348,7 +1348,7 @@ function TestimonialsSection() {
             { num: "10,000+", label: "meetings processed" },
           ].map((s) => (
             <div key={s.label}>
-              <p className="text-3xl font-bold text-[#6366f1]">{s.num}</p>
+              <p className="text-3xl font-bold text-[#e4e4e7]">{s.num}</p>
               <p className="text-sm text-muted-foreground">{s.label}</p>
             </div>
           ))}
@@ -1428,13 +1428,13 @@ function PricingSection() {
           {plans.map((p) => (
             <div
               key={p.name}
-              className={`relative rounded-xl border p-6 ${p.hl ? "border-[#6366f1] shadow-lg shadow-[rgba(99,102,241,0.15)]" : "border-border"} bg-card`}
+              className={`relative rounded-xl border p-6 ${p.hl ? "border-[#e4e4e7] shadow-lg shadow-[rgba(255,255,255,0.15)]" : "border-border"} bg-card`}
             >
               {p.hl && (
                 <span
-                  className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-semibold text-white"
+                  className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-semibold text-black"
                   style={{
-                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                    background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)",
                   }}
                 >
                   Most Popular
@@ -1470,12 +1470,12 @@ function PricingSection() {
               </ul>
               <Link href="/login" className="mt-6 block">
                 <button
-                  className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${p.hl ? "text-white hover:opacity-90" : "text-foreground border border-border hover:border-[rgba(99,102,241,0.4)]"}`}
+                  className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${p.hl ? "text-black hover:opacity-90" : "text-foreground border border-border hover:border-[rgba(255,255,255,0.4)]"}`}
                   style={
                     p.hl
                       ? {
                         background:
-                          "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                          "linear-gradient(135deg, #e4e4e7, #a1a1aa)",
                       }
                       : {}
                   }
@@ -1560,7 +1560,7 @@ function FinalCTA() {
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.12) 0%, transparent 60%)",
+            "radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.12) 0%, transparent 60%)",
         }}
       />
       <div className="mx-auto max-w-2xl relative z-10">
@@ -1576,10 +1576,10 @@ function FinalCTA() {
         <div className="mt-8">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-full text-sm font-semibold text-white transition-all duration-150 hover:opacity-90 shadow-lg"
+            className="inline-flex items-center gap-2 px-8 py-3 rounded-full text-sm font-semibold text-black transition-all duration-150 hover:opacity-90 shadow-lg"
             style={{
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              boxShadow: "0 0 24px rgba(99,102,241,0.35)",
+              background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)",
+              boxShadow: "0 0 24px rgba(255,255,255,0.35)",
             }}
           >
             Upload a recording free

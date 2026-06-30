@@ -1,32 +1,43 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function UploadLoading() {
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="space-y-2">
-        <Skeleton className="h-7 w-44" />
+    <div className="space-y-6">
+      <div>
+        <Skeleton className="h-8 w-56 mb-2" />
         <Skeleton className="h-4 w-72" />
       </div>
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-4 w-56" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-40 w-full rounded-lg" />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-5 w-32" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-        </CardContent>
-      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Drop zone */}
+        <Skeleton className="rounded-2xl" style={{ minHeight: 320 }} />
+
+        {/* Meeting details */}
+        <div
+          className="rounded-2xl border border-border bg-card flex flex-col"
+          style={{ minHeight: 320 }}
+        >
+          <div className="p-5 border-b border-border space-y-3">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+          <div className="p-5 border-b border-border space-y-3">
+            <Skeleton className="h-4 w-20" />
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-20 rounded-lg" />
+              <Skeleton className="h-8 w-20 rounded-lg" />
+              <Skeleton className="h-8 w-24 rounded-lg" />
+            </div>
+          </div>
+          <div className="p-5 flex-1 space-y-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+        </div>
+      </div>
+
+      <Skeleton className="h-14 w-full rounded-xl" />
     </div>
   );
 }

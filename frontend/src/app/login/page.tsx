@@ -84,8 +84,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left — Branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden" style={{ background: "#0a0a0f" }}>
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 30% 50%, rgba(99,102,241,0.12) 0%, transparent 60%)" }} />
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden" style={{ background: "#000000" }}>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 30% 50%, rgba(255,255,255,0.12) 0%, transparent 60%)" }} />
 
         <div className="relative z-10">
           <Link href="/" className="mb-16 -ml-4">
@@ -99,7 +99,7 @@ export default function LoginPage() {
           <h2 className="text-[32px] font-bold text-white leading-[1.15] tracking-tight mb-4" style={BG}>
             Never lose a meeting
             <br />
-            <span style={{ background: "linear-gradient(135deg, #818cf8, #c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <span style={{ background: "linear-gradient(135deg, #d4d4d8, #e4e4e7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               decision again.
             </span>
           </h2>
@@ -115,8 +115,8 @@ export default function LoginPage() {
             { icon: Search, text: "Search across all your past meetings instantly" },
           ].map((f) => (
             <div key={f.text} className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(99,102,241,0.1)" }}>
-                <f.icon size={15} style={{ color: "#818cf8" }} />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,0.1)" }}>
+                <f.icon size={15} style={{ color: "#d4d4d8" }} />
               </div>
               <span className="text-[13px] text-[#a1a1aa]">{f.text}</span>
             </div>
@@ -125,7 +125,7 @@ export default function LoginPage() {
           <div className="mt-8 flex items-center gap-3 pt-6 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
             <div className="flex -space-x-2">
               {["RA", "PR", "AM"].map((init, i) => (
-                <div key={init} className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold border-2" style={{ background: ["#6366f1", "#a78bfa", "#f472b6"][i], borderColor: "#0a0a0f", color: "white" }}>{init}</div>
+                <div key={init} className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold border-2" style={{ background: ["#52525b", "#3f3f46", "#71717a"][i], borderColor: "#000000", color: "white" }}>{init}</div>
               ))}
             </div>
             <div>

@@ -14,6 +14,7 @@ import {
   Users,
   Mic,
   Globe,
+  Mail,
 } from "lucide-react";
 
 const BG = { fontFamily: "'Bricolage Grotesque', sans-serif" };
@@ -31,11 +32,21 @@ const ACCEPTED_TYPES = [
 ];
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
+const LANGUAGES = [
+  { code: "en", label: "English" },
+  { code: "hi", label: "Hindi" },
+  { code: "multi", label: "Auto-detect" },
+];
+
 export default function UploadPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [attendees, setAttendees] = useState<string[]>(["", ""]);
+  const [attendees, setAttendees] = useState<
+    { name: string; email: string }[]
+  >([]);
+  const [draftName, setDraftName] = useState("");
+  const [draftEmail, setDraftEmail] = useState("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
@@ -81,17 +92,24 @@ export default function UploadPage() {
   }
 
   function addAttendee() {
-    setAttendees([...attendees, ""]);
+    if (!draftName.trim()) return;
+    setAttendees([
+      ...attendees,
+      { name: draftName.trim(), email: draftEmail.trim() },
+    ]);
+    setDraftName("");
+    setDraftEmail("");
   }
 
   function removeAttendee(index: number) {
     setAttendees(attendees.filter((_, i) => i !== index));
   }
 
-  function updateAttendee(index: number, value: string) {
-    const updated = [...attendees];
-    updated[index] = value;
-    setAttendees(updated);
+  function handleDraftKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addAttendee();
+    }
   }
 
   function formatFileSize(bytes: number): string {
@@ -107,10 +125,22 @@ export default function UploadPage() {
       return;
     }
 
-    const filteredAttendees = attendees.filter((a) => a.trim());
-    if (filteredAttendees.length === 0) {
+    // Include a pending draft name the user typed but didn't click "Add" for
+    const finalAttendees = draftName.trim()
+      ? [...attendees, { name: draftName.trim(), email: draftEmail.trim() }]
+      : attendees;
+
+    if (finalAttendees.length === 0) {
       toast.error("Please add at least one attendee name.");
       return;
+    }
+
+    const attendeeNames = finalAttendees.map((a) => a.name);
+    const attendeeEmails: Record<string, string> = {};
+    for (const a of finalAttendees) {
+      if (a.email) {
+        attendeeEmails[a.name] = a.email;
+      }
     }
 
     setUploading(true);
@@ -154,7 +184,8 @@ export default function UploadPage() {
           status: "queued",
           audio_url: urlData.publicUrl,
           audio_path: filePath,
-          attendees: filteredAttendees,
+          attendees: attendeeNames,
+          attendee_emails: attendeeEmails,
         })
         .select("id")
         .single();
@@ -174,7 +205,7 @@ export default function UploadPage() {
           body: JSON.stringify({
             meeting_id: meeting.id,
             audio_url: urlData.publicUrl,
-            attendees: filteredAttendees,
+            attendees: attendeeNames,
             language,
           }),
         });
@@ -192,151 +223,123 @@ export default function UploadPage() {
     }
   }
 
-  const isReady = !!file && !!title.trim() && attendees.some((a) => a.trim());
+  const filledAttendees = draftName.trim()
+    ? [...attendees, { name: draftName.trim(), email: draftEmail.trim() }]
+    : attendees;
+  const isReady = !!file && !!title.trim() && filledAttendees.length > 0;
+  const languageLabel =
+    LANGUAGES.find((l) => l.code === language)?.label ?? "English";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div>
-        <h1
-          className="text-[clamp(24px,3vw,32px)] font-bold tracking-tight"
-          style={BG}
-        >
+        <h1 className="text-[20px] font-bold tracking-tight" style={BG}>
           Upload a recording
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-xs text-muted-foreground mt-0.5">
           Drop your meeting audio and add attendee names
         </p>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        {/* Two-column layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* LEFT — File upload */}
-          <div className="flex flex-col">
-            {file ? (
-              <div
-                className="flex-1 flex flex-col rounded-2xl border border-border bg-card p-5"
-              >
-                <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-                  <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                    style={{ background: "rgba(52,211,153,0.1)" }}
-                  >
-                    <FileAudio
-                      className="h-7 w-7"
-                      style={{ color: "#34d399" }}
-                    />
-                  </div>
-                  <p className="text-[15px] font-semibold mb-1" style={BG}>
-                    {file.name}
-                  </p>
-                  <p
-                    className="text-[12px] text-muted-foreground"
-                    style={MONO}
-                  >
-                    {formatFileSize(file.size)}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFile(null)}
-                  className="w-full py-2 rounded-xl text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  Remove and choose another
-                </button>
-              </div>
-            ) : (
-              <label
-                className="flex-1 block cursor-pointer"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragActive(true);
-                }}
-                onDragLeave={() => setDragActive(false)}
-                onDrop={onDrop}
-              >
-                <div
-                  className="h-full flex flex-col items-center justify-center rounded-2xl border-2 border-dashed py-16 px-6 transition-all"
-                  style={{
-                    borderColor: dragActive
-                      ? "rgba(99,102,241,0.5)"
-                      : "rgba(99,102,241,0.15)",
-                    background: dragActive
-                      ? "rgba(99,102,241,0.06)"
-                      : "rgba(99,102,241,0.02)",
-                    minHeight: 320,
-                  }}
-                >
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-                    style={{ background: "rgba(99,102,241,0.1)" }}
-                  >
-                    <Upload
-                      className="h-6 w-6"
-                      style={{ color: "#818cf8" }}
-                    />
-                  </div>
-                  <p className="text-[15px] font-semibold mb-1" style={BG}>
-                    {dragActive
-                      ? "Drop your file here"
-                      : "Drag & drop audio file"}
-                  </p>
-                  <p className="text-[12px] text-muted-foreground mb-5">
-                    or click to browse
-                  </p>
-                  <div className="flex flex-wrap items-center justify-center gap-1.5">
-                    {["MP3", "MP4", "WAV", "M4A", "OGG", "WEBM"].map(
-                      (fmt) => (
-                        <span
-                          key={fmt}
-                          className="px-2 py-0.5 rounded-md text-[9px] font-medium"
-                          style={{
-                            background: "rgba(99,102,241,0.08)",
-                            color: "#818cf8",
-                            ...MONO,
-                          }}
-                        >
-                          {fmt}
-                        </span>
-                      )
-                    )}
-                  </div>
-                  <p
-                    className="text-[10px] text-muted-foreground/40 mt-2"
-                    style={MONO}
-                  >
-                    Max 500MB
-                  </p>
-                </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".mp3,.mp4,.wav,.m4a,.ogg,.webm"
-                  onChange={onFileSelect}
-                />
-              </label>
-            )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* TOP — Full-width file upload */}
+        {file ? (
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: "rgba(52,211,153,0.1)" }}
+            >
+              <FileAudio className="h-4 w-4" style={{ color: "#34d399" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold truncate" style={BG}>
+                {file.name}
+              </p>
+              <p className="text-[11px] text-muted-foreground" style={MONO}>
+                {formatFileSize(file.size)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFile(null)}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 cursor-pointer"
+            >
+              Change file
+            </button>
           </div>
-
-          {/* RIGHT — Meeting details */}
-          <div
-            className="rounded-2xl border border-border bg-card flex flex-col"
-            style={{ minHeight: 320 }}
+        ) : (
+          <label
+            className="block cursor-pointer"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={onDrop}
           >
-            {/* Title */}
-            <div className="p-5 border-b border-border">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(99,102,241,0.08)" }}
+            <div
+              className="flex flex-col items-center justify-center text-center gap-2 rounded-xl border-2 border-dashed px-5 py-6 transition-all"
+              style={{
+                borderColor: dragActive
+                  ? "rgba(255,255,255,0.5)"
+                  : "rgba(255,255,255,0.15)",
+                background: dragActive
+                  ? "rgba(255,255,255,0.06)"
+                  : "rgba(255,255,255,0.02)",
+              }}
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "rgba(255,255,255,0.1)" }}
+              >
+                <Upload className="h-4.5 w-4.5" style={{ color: "#d4d4d8" }} />
+              </div>
+              <p className="text-[13px] font-semibold" style={BG}>
+                {dragActive
+                  ? "Drop your file here"
+                  : "Drag & drop audio file, or click to browse"}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {["MP3", "MP4", "WAV", "M4A", "OGG", "WEBM"].map((fmt) => (
+                  <span
+                    key={fmt}
+                    className="px-1.5 py-0.5 rounded text-[8px] font-medium"
+                    style={{
+                      background: "rgba(255,255,255,0.08)",
+                      color: "#d4d4d8",
+                      ...MONO,
+                    }}
+                  >
+                    {fmt}
+                  </span>
+                ))}
+                <span
+                  className="text-[9px] text-muted-foreground/40 ml-1"
+                  style={MONO}
                 >
-                  <Mic
-                    className="h-3.5 w-3.5"
-                    style={{ color: "#818cf8" }}
-                  />
-                </div>
-                <p className="text-[13px] font-semibold" style={BG}>
+                  Max 500MB
+                </span>
+              </div>
+            </div>
+            <input
+              type="file"
+              className="hidden"
+              accept=".mp3,.mp4,.wav,.m4a,.ogg,.webm"
+              onChange={onFileSelect}
+            />
+          </label>
+        )}
+
+        {/* BELOW — Two columns: form (left) + live preview (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* LEFT — Form */}
+          <div className="rounded-xl border border-border bg-card flex flex-col">
+            {/* Title */}
+            <div className="px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Mic className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <p className="text-[11px] font-semibold" style={BG}>
                   Meeting title
                 </p>
               </div>
@@ -344,47 +347,32 @@ export default function UploadPage() {
                 placeholder="e.g. Sprint Planning — June 27"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full bg-transparent rounded-xl border border-border px-4 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground/40 focus:border-[rgba(99,102,241,0.4)] transition-colors"
+                className="w-full bg-transparent rounded-lg border border-border px-3 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 focus:border-[rgba(255,255,255,0.4)] transition-colors"
               />
             </div>
 
             {/* Language */}
-            <div className="px-5 pb-4 border-b border-border">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(99,102,241,0.08)" }}
-                >
-                  <Globe
-                    className="h-3.5 w-3.5"
-                    style={{ color: "#818cf8" }}
-                  />
-                </div>
-                <p className="text-[13px] font-semibold" style={BG}>
+            <div className="px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Globe className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <p className="text-[11px] font-semibold" style={BG}>
                   Language
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { code: "en", label: "English" },
-                  { code: "hi", label: "Hindi" },
-                  { code: "multi", label: "Auto-detect" },
-                ].map((lang) => (
+              <div className="flex gap-1.5">
+                {LANGUAGES.map((lang) => (
                   <button
                     key={lang.code}
                     type="button"
                     onClick={() => setLanguage(lang.code)}
-                    className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
+                    className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer"
                     style={{
                       background:
                         language === lang.code
-                          ? "rgba(99,102,241,0.15)"
-                          : "rgba(99,102,241,0.04)",
-                      color:
-                        language === lang.code
-                          ? "#818cf8"
-                          : undefined,
-                      border: `1px solid ${language === lang.code ? "rgba(99,102,241,0.3)" : "rgba(99,102,241,0.08)"}`,
+                          ? "rgba(255,255,255,0.15)"
+                          : "rgba(255,255,255,0.04)",
+                      color: language === lang.code ? "#e4e4e7" : "#9999a8",
+                      border: `1px solid ${language === lang.code ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.08)"}`,
                     }}
                   >
                     {lang.label}
@@ -394,59 +382,216 @@ export default function UploadPage() {
             </div>
 
             {/* Attendees */}
-            <div className="p-5 flex-1 flex flex-col">
-              <div className="flex items-center gap-2.5 mb-1">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(99,102,241,0.08)" }}
-                >
-                  <Users
-                    className="h-3.5 w-3.5"
-                    style={{ color: "#818cf8" }}
-                  />
-                </div>
-                <p className="text-[13px] font-semibold" style={BG}>
+            <div className="px-4 py-3 flex-1">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Users className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <p className="text-[11px] font-semibold" style={BG}>
                   Attendees
                 </p>
               </div>
-              <p className="text-[11px] text-muted-foreground mb-3 ml-[38px]">
-                We&apos;ll match voices to names after processing
-              </p>
 
-              <div className="space-y-2 flex-1">
-                {attendees.map((name, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      placeholder={`Attendee ${i + 1}`}
-                      value={name}
-                      onChange={(e) => updateAttendee(i, e.target.value)}
-                      className="flex-1 bg-transparent rounded-xl border border-border px-4 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground/40 focus:border-[rgba(99,102,241,0.4)] transition-colors"
-                    />
-                    {attendees.length > 1 && (
+              {/* Quick-add row */}
+              <div className="flex gap-1.5 mb-2.5">
+                <input
+                  placeholder="Attendee name"
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  onKeyDown={handleDraftKeyDown}
+                  className="flex-1 bg-transparent rounded-lg border border-border px-2.5 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 focus:border-[rgba(255,255,255,0.4)] transition-colors min-w-0"
+                />
+                <div className="flex-1 flex items-center gap-1 rounded-lg border border-border px-2 focus-within:border-[rgba(255,255,255,0.4)] transition-colors min-w-0">
+                  <Mail className="h-3 w-3 shrink-0 text-muted-foreground/40" />
+                  <input
+                    type="email"
+                    placeholder="Email (optional)"
+                    value={draftEmail}
+                    onChange={(e) => setDraftEmail(e.target.value)}
+                    onKeyDown={handleDraftKeyDown}
+                    className="flex-1 bg-transparent py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 min-w-0"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={addAttendee}
+                  disabled={!draftName.trim()}
+                  className="w-8 rounded-lg flex items-center justify-center transition-all shrink-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                  style={{
+                    background: "rgba(255,255,255,0.1)",
+                    color: "#e4e4e7",
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Chips — wrap horizontally instead of growing the page */}
+              {attendees.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1">
+                  {attendees.map((attendee, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11px]"
+                      style={{
+                        background: "rgba(255,255,255,0.06)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        color: "#e4e4e7",
+                      }}
+                    >
+                      {attendee.name}
+                      {attendee.email && (
+                        <Mail className="h-2.5 w-2.5 text-muted-foreground/50" />
+                      )}
                       <button
                         type="button"
                         onClick={() => removeAttendee(i)}
-                        className="w-10 rounded-xl flex items-center justify-center hover:bg-muted transition-colors shrink-0"
+                        className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
                       >
-                        <X className="h-4 w-4 text-muted-foreground" />
+                        <X className="h-2.5 w-2.5 text-muted-foreground" />
                       </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
-              <button
-                type="button"
-                onClick={addAttendee}
-                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:opacity-80 self-start"
+          {/* RIGHT — Meeting summary */}
+          <div className="rounded-xl border border-border bg-card flex flex-col overflow-hidden">
+            <div
+              className="px-4 py-3 border-b border-border flex items-center justify-between"
+              style={{ background: "rgba(255,255,255,0.02)" }}
+            >
+              <p
+                className="text-[10px] font-bold uppercase tracking-[0.15em]"
+                style={{ color: "#9999a8", ...MONO }}
+              >
+                Meeting summary
+              </p>
+              <div
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full"
                 style={{
-                  background: "rgba(99,102,241,0.08)",
-                  color: "#818cf8",
+                  background: isReady
+                    ? "rgba(52,211,153,0.12)"
+                    : "rgba(255,255,255,0.06)",
                 }}
               >
-                <Plus className="h-3 w-3" />
-                Add attendee
-              </button>
+                <div
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: isReady ? "#34d399" : "#71717a" }}
+                />
+                <span
+                  className="text-[10px] font-medium"
+                  style={{
+                    color: isReady ? "#34d399" : "#9999a8",
+                    ...MONO,
+                  }}
+                >
+                  {isReady ? "Ready" : "Incomplete"}
+                </span>
+              </div>
+            </div>
+
+            <div className="px-4 py-3 border-b border-border">
+              <p
+                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-1"
+                style={{ color: "#71717a", ...MONO }}
+              >
+                Recording
+              </p>
+              {file ? (
+                <div className="flex items-center gap-2">
+                  <FileAudio className="h-3.5 w-3.5 shrink-0" style={{ color: "#34d399" }} />
+                  <span className="text-[13px] font-medium truncate">
+                    {file.name}
+                  </span>
+                  <span
+                    className="text-[10px] text-muted-foreground shrink-0"
+                    style={MONO}
+                  >
+                    {formatFileSize(file.size)}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-[12px] text-muted-foreground/50 italic">
+                  Not selected yet
+                </span>
+              )}
+            </div>
+
+            <div className="px-4 py-3 border-b border-border">
+              <p
+                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-1"
+                style={{ color: "#71717a", ...MONO }}
+              >
+                Title
+              </p>
+              {title.trim() ? (
+                <span className="text-[13px] font-medium">{title}</span>
+              ) : (
+                <span className="text-[12px] text-muted-foreground/50 italic">
+                  No title yet
+                </span>
+              )}
+            </div>
+
+            <div className="px-4 py-3 border-b border-border">
+              <p
+                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-1"
+                style={{ color: "#71717a", ...MONO }}
+              >
+                Language
+              </p>
+              <span className="text-[13px] font-medium">{languageLabel}</span>
+            </div>
+
+            <div className="px-4 py-3 flex-1">
+              <p
+                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-2"
+                style={{ color: "#71717a", ...MONO }}
+              >
+                Attendees ({filledAttendees.length})
+              </p>
+              {filledAttendees.length === 0 ? (
+                <span className="text-[12px] text-muted-foreground/50 italic">
+                  None added yet
+                </span>
+              ) : (
+                <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-1">
+                  {filledAttendees.map((a, i) => (
+                    <div key={i} className="flex items-center gap-2.5">
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
+                        style={{
+                          background: "rgba(255,255,255,0.1)",
+                          color: "#e4e4e7",
+                        }}
+                      >
+                        {a.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </div>
+                      <span className="text-[12px] font-medium truncate shrink-0 max-w-[40%]">
+                        {a.name}
+                      </span>
+                      {a.email ? (
+                        <span
+                          className="text-[11px] text-muted-foreground truncate"
+                          style={MONO}
+                        >
+                          {a.email}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground/40 italic">
+                          no email — won&apos;t get follow-up
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -454,14 +599,14 @@ export default function UploadPage() {
         {/* Progress bar */}
         {uploading && (
           <div
-            className="mt-5 rounded-2xl border p-5"
+            className="rounded-xl border p-3.5"
             style={{
-              borderColor: "rgba(99,102,241,0.2)",
-              background: "rgba(99,102,241,0.04)",
+              borderColor: "rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.04)",
             }}
           >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[13px] font-semibold" style={BG}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[12px] font-semibold" style={BG}>
                 {progress < 60
                   ? "Uploading audio..."
                   : progress < 100
@@ -469,21 +614,21 @@ export default function UploadPage() {
                     : "Done!"}
               </p>
               <span
-                className="text-[11px] font-medium"
-                style={{ color: "#818cf8", ...MONO }}
+                className="text-[10px] font-medium"
+                style={{ color: "#d4d4d8", ...MONO }}
               >
                 {progress}%
               </span>
             </div>
             <div
-              className="h-2 rounded-full overflow-hidden"
-              style={{ background: "rgba(99,102,241,0.1)" }}
+              className="h-1.5 rounded-full overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.1)" }}
             >
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${progress}%`,
-                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)",
                 }}
               />
             </div>
@@ -494,26 +639,24 @@ export default function UploadPage() {
         <button
           type="submit"
           disabled={uploading || !file}
-          className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl py-4 text-[15px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           style={{
             background: isReady
-              ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
-              : "rgba(99,102,241,0.15)",
-            color: isReady ? "white" : "#818cf8",
-            boxShadow: isReady
-              ? "0 0 24px rgba(99,102,241,0.3)"
-              : "none",
+              ? "linear-gradient(135deg, #e4e4e7, #a1a1aa)"
+              : "rgba(255,255,255,0.15)",
+            color: isReady ? "#0a0a0a" : "#d4d4d8",
+            boxShadow: isReady ? "0 0 20px rgba(255,255,255,0.25)" : "none",
           }}
         >
           {uploading ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Processing...
             </>
           ) : (
             <>
               Upload and process
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-3.5 w-3.5" />
             </>
           )}
         </button>

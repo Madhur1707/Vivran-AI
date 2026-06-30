@@ -16,11 +16,11 @@ const BG = { fontFamily: "'Bricolage Grotesque', sans-serif" };
 const MONO = { fontFamily: "'JetBrains Mono', monospace" };
 
 const AVATAR_COLORS = [
-  "#6366f1",
-  "#a78bfa",
+  "#e4e4e7",
+  "#a1a1aa",
   "#f472b6",
   "#34d399",
-  "#818cf8",
+  "#d4d4d8",
 ];
 
 interface MeetingOption {
@@ -128,7 +128,7 @@ export default function SearchPage() {
       <div>
         <p
           className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3 flex items-center gap-2"
-          style={{ color: selectedMeeting ? "#34d399" : "#818cf8", ...MONO }}
+          style={{ color: selectedMeeting ? "#34d399" : "#d4d4d8", ...MONO }}
         >
           {selectedMeeting ? (
             <span
@@ -141,8 +141,8 @@ export default function SearchPage() {
             <span
               className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold"
               style={{
-                background: "rgba(99,102,241,0.15)",
-                color: "#818cf8",
+                background: "rgba(255,255,255,0.15)",
+                color: "#d4d4d8",
               }}
             >
               1
@@ -211,13 +211,13 @@ export default function SearchPage() {
                       className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all duration-200"
                       style={{
                         borderColor: isSelected
-                          ? "rgba(99,102,241,0.4)"
+                          ? "rgba(255,255,255,0.4)"
                           : undefined,
                         background: isSelected
-                          ? "rgba(99,102,241,0.08)"
+                          ? "rgba(255,255,255,0.08)"
                           : undefined,
                         boxShadow: isSelected
-                          ? "0 0 0 1px rgba(99,102,241,0.2)"
+                          ? "0 0 0 1px rgba(255,255,255,0.2)"
                           : undefined,
                       }}
                     >
@@ -225,19 +225,19 @@ export default function SearchPage() {
                         className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                         style={{
                           background: isSelected
-                            ? "rgba(99,102,241,0.2)"
-                            : "rgba(99,102,241,0.08)",
+                            ? "rgba(255,255,255,0.2)"
+                            : "rgba(255,255,255,0.08)",
                         }}
                       >
                         {isSelected ? (
                           <Check
                             className="h-4 w-4"
-                            style={{ color: "#818cf8" }}
+                            style={{ color: "#d4d4d8" }}
                           />
                         ) : (
                           <FileText
                             className="h-4 w-4"
-                            style={{ color: "#818cf8" }}
+                            style={{ color: "#d4d4d8" }}
                           />
                         )}
                       </div>
@@ -246,7 +246,7 @@ export default function SearchPage() {
                           className="text-[13px] font-semibold truncate"
                           style={{
                             ...BG,
-                            color: isSelected ? "#818cf8" : undefined,
+                            color: isSelected ? "#d4d4d8" : undefined,
                           }}
                         >
                           {m.title}
@@ -273,7 +273,7 @@ export default function SearchPage() {
                 <button
                   onClick={() => setShowAll(!showAll)}
                   className="w-full mt-2 py-2 text-[12px] font-medium rounded-lg transition-colors hover:opacity-80"
-                  style={{ color: "#818cf8" }}
+                  style={{ color: "#d4d4d8" }}
                 >
                   {showAll
                     ? "Show less"
@@ -294,8 +294,8 @@ export default function SearchPage() {
           <div
             className="flex flex-col items-center justify-center py-12 rounded-xl border"
             style={{
-              borderColor: "rgba(99,102,241,0.1)",
-              background: "rgba(99,102,241,0.03)",
+              borderColor: "rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.03)",
             }}
           >
             <FileText
@@ -307,7 +307,7 @@ export default function SearchPage() {
               <Link
                 href="/dashboard/upload"
                 className="font-medium"
-                style={{ color: "#818cf8" }}
+                style={{ color: "#d4d4d8" }}
               >
                 Upload one
               </Link>
@@ -328,7 +328,7 @@ export default function SearchPage() {
           className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3 flex items-center gap-2"
           style={{
             color:
-              hasSearched && answer ? "#34d399" : "#818cf8",
+              hasSearched && answer ? "#34d399" : "#d4d4d8",
             ...MONO,
           }}
         >
@@ -343,8 +343,8 @@ export default function SearchPage() {
             <span
               className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold"
               style={{
-                background: "rgba(99,102,241,0.15)",
-                color: "#818cf8",
+                background: "rgba(255,255,255,0.15)",
+                color: "#d4d4d8",
               }}
             >
               2
@@ -357,13 +357,13 @@ export default function SearchPage() {
           <div
             className="flex items-center gap-3 rounded-2xl border px-5 py-1 shadow-sm transition-all focus-within:shadow-md"
             style={{
-              borderColor: "rgba(99,102,241,0.2)",
+              borderColor: "rgba(255,255,255,0.2)",
               background: "rgba(255,255,255,0.02)",
             }}
           >
             <Search
               className="h-5 w-5 shrink-0"
-              style={{ color: "rgba(99,102,241,0.4)" }}
+              style={{ color: "rgba(255,255,255,0.4)" }}
             />
             <input
               placeholder={
@@ -383,9 +383,9 @@ export default function SearchPage() {
               style={{
                 background:
                   query.trim()
-                    ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
-                    : "rgba(99,102,241,0.1)",
-                color: query.trim() ? "white" : "#818cf8",
+                    ? "linear-gradient(135deg, #e4e4e7, #a1a1aa)"
+                    : "rgba(255,255,255,0.1)",
+                color: query.trim() ? "#0a0a0a" : "#d4d4d8",
                 opacity: query.trim() ? 1 : 0.5,
               }}
             >
@@ -406,13 +406,13 @@ export default function SearchPage() {
           <div
             className="rounded-2xl border-l-2 p-5"
             style={{
-              borderColor: "#6366f1",
-              background: "rgba(99,102,241,0.06)",
+              borderColor: "#e4e4e7",
+              background: "rgba(255,255,255,0.06)",
             }}
           >
             <p
               className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3"
-              style={{ color: "#818cf8", ...MONO }}
+              style={{ color: "#d4d4d8", ...MONO }}
             >
               AI Answer
             </p>
@@ -510,7 +510,7 @@ export default function SearchPage() {
                   <Link
                     href={`/dashboard/meetings/${selectedMeeting.id}`}
                     className="inline-flex items-center gap-1.5 text-[12px] font-medium transition-colors hover:opacity-80"
-                    style={{ color: "#818cf8" }}
+                    style={{ color: "#d4d4d8" }}
                   >
                     <MessageSquare className="h-3.5 w-3.5" />
                     View full transcript

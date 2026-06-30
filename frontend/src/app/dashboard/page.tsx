@@ -35,9 +35,9 @@ const statusConfig: Record<
   },
   processing: {
     label: "Processing",
-    dot: "#818cf8",
-    bg: "rgba(99,102,241,0.1)",
-    color: "#818cf8",
+    dot: "#d4d4d8",
+    bg: "rgba(255,255,255,0.1)",
+    color: "#d4d4d8",
   },
   completed: {
     label: "Completed",
@@ -54,11 +54,11 @@ const statusConfig: Record<
 };
 
 const AVATAR_COLORS = [
-  "#6366f1",
-  "#a78bfa",
+  "#e4e4e7",
+  "#a1a1aa",
   "#f472b6",
   "#34d399",
-  "#818cf8",
+  "#d4d4d8",
   "#fbbf24",
   "#f97316",
   "#06b6d4",
@@ -127,10 +127,10 @@ export default async function DashboardPage() {
         </div>
         <Link href="/dashboard/upload">
           <Button
-            className="rounded-full text-white border-0"
+            className="rounded-full text-black border-0"
             style={{
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              boxShadow: "0 0 20px rgba(99,102,241,0.25)",
+              background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)",
+              boxShadow: "0 0 20px rgba(255,255,255,0.25)",
             }}
           >
             <Upload className="mr-2 h-4 w-4" />
@@ -145,15 +145,15 @@ export default async function DashboardPage() {
           className="flex flex-col items-center justify-center py-24 rounded-2xl border"
           style={{
             background:
-              "linear-gradient(180deg, rgba(99,102,241,0.04) 0%, transparent 100%)",
-            borderColor: "rgba(99,102,241,0.15)",
+              "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%)",
+            borderColor: "rgba(255,255,255,0.15)",
           }}
         >
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-            style={{ background: "rgba(99,102,241,0.1)" }}
+            style={{ background: "rgba(255,255,255,0.1)" }}
           >
-            <FileAudio className="h-7 w-7" style={{ color: "#818cf8" }} />
+            <FileAudio className="h-7 w-7" style={{ color: "#d4d4d8" }} />
           </div>
           <h3 className="text-lg font-semibold mb-2" style={BG}>
             No meetings yet
@@ -164,9 +164,9 @@ export default async function DashboardPage() {
           </p>
           <Link href="/dashboard/upload">
             <Button
-              className="rounded-full text-white border-0"
+              className="rounded-full text-black border-0"
               style={{
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)",
               }}
             >
               <Upload className="mr-2 h-4 w-4" />
@@ -185,7 +185,7 @@ export default async function DashboardPage() {
                 href={`/dashboard/meetings/${meeting.id}`}
               >
                 <div
-                  className="group rounded-xl border border-border bg-card p-5 h-full flex flex-col transition-all duration-200 hover:border-[rgba(99,102,241,0.3)] hover:shadow-lg shadow-sm cursor-pointer"
+                  className="group rounded-xl border border-border bg-card p-5 h-full flex flex-col transition-all duration-200 hover:border-[rgba(255,255,255,0.3)] hover:shadow-lg shadow-sm cursor-pointer"
                 >
                   {/* Top: Status + date */}
                   <div className="flex items-center justify-between mb-4">
@@ -282,7 +282,7 @@ export default async function DashboardPage() {
                         No attendees
                       </span>
                     )}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-[#818cf8] transition-colors shrink-0" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-[#d4d4d8] transition-colors shrink-0" />
                   </div>
                 </div>
               </Link>

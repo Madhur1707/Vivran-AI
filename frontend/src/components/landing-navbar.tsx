@@ -38,8 +38,8 @@ export function LandingNavbar() {
           </Link>
           <Link
             href="/login"
-            className="px-4 py-2 rounded-full text-sm font-medium text-white transition-all duration-150 hover:opacity-90 hover:scale-[1.02]"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+            className="px-4 py-2 rounded-full text-sm font-medium text-black transition-all duration-150 hover:opacity-90 hover:scale-[1.02]"
+            style={{ background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)" }}
           >
             Start free
           </Link>
@@ -64,8 +64,8 @@ export function LandingNavbar() {
             <Link href="/login" className="text-sm text-muted-foreground">Sign in</Link>
             <Link
               href="/login"
-              className="px-4 py-1.5 rounded-full text-sm font-medium text-white"
-              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+              className="px-4 py-1.5 rounded-full text-sm font-medium text-black"
+              style={{ background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)" }}
             >
               Start free
             </Link>
