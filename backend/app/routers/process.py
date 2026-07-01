@@ -1,8 +1,9 @@
 import json
+import traceback
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from app.services.transcribe import process_meeting
+from app.services.transcribe import process_meeting, index_meeting_chunks
 from app.config import settings
 
 router = APIRouter()
@@ -42,7 +43,7 @@ async def remap_speakers(req: RemapSpeakersRequest):
     supabase = create_client(settings.supabase_url, settings.supabase_service_key)
 
     result = supabase.table("meetings").select(
-        "transcript, summary, action_items, decisions, open_questions, follow_up_email"
+        "workspace_id, transcript, summary, action_items, decisions, open_questions, follow_up_email"
     ).eq("id", req.meeting_id).single().execute()
 
     if not result.data or not result.data.get("transcript"):
@@ -89,5 +90,16 @@ async def remap_speakers(req: RemapSpeakersRequest):
         update_data["follow_up_email"] = replace_speakers_in_text(result.data["follow_up_email"], req.speaker_map)
 
     supabase.table("meetings").update(update_data).eq("id", req.meeting_id).execute()
+
+    # Cross-meeting search reads from meeting_chunks, which was indexed with
+    # the raw "Speaker N" labels right after transcription — re-index it now
+    # so renamed speakers show up in search results too.
+    workspace_id = result.data.get("workspace_id")
+    if workspace_id:
+        try:
+            index_meeting_chunks(supabase, req.meeting_id, workspace_id, transcript)
+        except Exception:
+            print(f"[{req.meeting_id}] Re-indexing chunks after speaker remap failed:")
+            traceback.print_exc()
 
     return {"status": "ok", "meeting_id": req.meeting_id}

@@ -43,11 +43,10 @@ function getInitials(name: string): string {
 }
 
 export default function SearchPage() {
-  const [mode, setMode] = useState<"single" | "all">("single");
+  const [scope, setScope] = useState<"single" | "all">("all");
   const [meetings, setMeetings] = useState<MeetingOption[]>([]);
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingOption | null>(null);
   const [meetingFilter, setMeetingFilter] = useState("");
-  const [showAll, setShowAll] = useState(false);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState("");
@@ -78,11 +77,30 @@ export default function SearchPage() {
     loadMeetings();
   }, []);
 
+  function resetSearch() {
+    setHasSearched(false);
+    setAnswer("");
+    setSources([]);
+  }
+
+  function selectMeeting(m: MeetingOption | null) {
+    setSelectedMeeting(m);
+    resetSearch();
+  }
+
+  function selectScope(s: "single" | "all") {
+    setScope(s);
+    if (s === "all") setSelectedMeeting(null);
+    resetSearch();
+  }
+
+  const activeMeeting = scope === "single" ? selectedMeeting : null;
+
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
-    if (mode === "single" && !selectedMeeting) return;
-    if (mode === "all" && !workspaceId) return;
+    if (scope === "single" && !activeMeeting) return;
+    if (scope === "all" && !workspaceId) return;
 
     setSearching(true);
     setHasSearched(true);
@@ -91,11 +109,10 @@ export default function SearchPage() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const endpoint = mode === "single" ? "/api/search" : "/api/search-all";
-      const body =
-        mode === "single"
-          ? { meeting_id: selectedMeeting!.id, query: query.trim() }
-          : { workspace_id: workspaceId, query: query.trim() };
+      const endpoint = activeMeeting ? "/api/search" : "/api/search-all";
+      const body = activeMeeting
+        ? { meeting_id: activeMeeting.id, query: query.trim() }
+        : { workspace_id: workspaceId, query: query.trim() };
 
       const res = await fetch(`${apiUrl}${endpoint}`, {
         method: "POST",
@@ -114,163 +131,140 @@ export default function SearchPage() {
     }
   }
 
-  function resetSearch() {
-    setHasSearched(false);
-    setAnswer("");
-    setSources([]);
-  }
+  const filteredMeetings = meetings.filter((m) =>
+    meetingFilter
+      ? m.title.toLowerCase().includes(meetingFilter.toLowerCase()) ||
+        (m.attendees ?? []).some((a) => a.toLowerCase().includes(meetingFilter.toLowerCase()))
+      : true
+  );
 
-  /* ── Search controls (shared between both layouts) ── */
-  const searchControls = (compact: boolean) => (
-    <div className={compact ? "space-y-4" : "space-y-6"}>
-      {/* Mode toggle */}
+  return (
+    <div
+      className="flex flex-col md:flex-row w-full md:min-h-[75vh]"
+      style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+    >
+      {/* LEFT: scope tabs + compact meetings list */}
       <div
-        className="flex rounded-full border p-0.5"
-        style={{ borderColor: "rgba(255,255,255,0.12)" }}
+        className="w-full md:w-64 shrink-0 border-b md:border-b-0 md:border-r px-3 py-4 md:py-5 flex flex-col"
+        style={{ borderColor: "rgba(255,255,255,0.06)" }}
       >
-        {(
-          [
-            { key: "single", label: "This meeting" },
-            { key: "all", label: "All meetings" },
-          ] as const
-        ).map((opt) => (
-          <button
-            key={opt.key}
-            type="button"
-            onClick={() => { setMode(opt.key); resetSearch(); }}
-            className="flex-1 py-1.5 rounded-full text-[12px] font-medium transition-all cursor-pointer"
-            style={{
-              background: mode === opt.key ? "rgba(255,255,255,0.15)" : "transparent",
-              color: mode === opt.key ? "#e4e4e7" : "#71717a",
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Meeting picker — single mode only */}
-      {mode === "single" && (
-        <div className="space-y-2">
-          <p
-            className="text-[10px] font-bold uppercase tracking-[0.12em]"
-            style={{ color: "#52525b", ...MONO }}
-          >
-            {selectedMeeting ? (
-              <span className="flex items-center gap-1.5">
-                <Check className="h-3 w-3" style={{ color: "#34d399" }} />
-                <span style={{ color: "#34d399" }}>Meeting selected</span>
-              </span>
-            ) : "Select a meeting"}
-          </p>
-
-          {meetings.length > 4 && (
-            <div
-              className="flex items-center gap-2 rounded-lg border px-3"
-              style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}
+        {/* Scope tabs */}
+        <div
+          className="flex rounded-full border p-0.5 mb-3"
+          style={{ borderColor: "rgba(255,255,255,0.12)" }}
+        >
+          {(
+            [
+              { key: "single", label: "Select meeting" },
+              { key: "all", label: "All meetings" },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => selectScope(opt.key)}
+              className="flex-1 py-1.5 rounded-full text-[11px] font-medium transition-all cursor-pointer"
+              style={{
+                background: scope === opt.key ? "rgba(255,255,255,0.15)" : "transparent",
+                color: scope === opt.key ? "#e4e4e7" : "#71717a",
+              }}
             >
-              <Search className="h-3 w-3 shrink-0" style={{ color: "rgba(161,161,170,0.4)" }} />
-              <input
-                placeholder="Filter…"
-                value={meetingFilter}
-                onChange={(e) => { setMeetingFilter(e.target.value); setShowAll(false); }}
-                className="flex-1 min-w-0 bg-transparent py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40"
-              />
-              {meetingFilter && (
-                <button onClick={() => setMeetingFilter("")} className="text-[10px] text-muted-foreground hover:text-foreground">
-                  ✕
-                </button>
-              )}
-            </div>
-          )}
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
-          {(() => {
-            const filtered = meetings.filter((m) =>
-              meetingFilter
-                ? m.title.toLowerCase().includes(meetingFilter.toLowerCase()) ||
-                  (m.attendees ?? []).some((a) => a.toLowerCase().includes(meetingFilter.toLowerCase()))
-                : true
-            );
-            const LIMIT = compact ? 4 : 6;
-            const visible = showAll ? filtered : filtered.slice(0, LIMIT);
-            const hasMore = filtered.length > LIMIT;
-
-            return (
-              <div className="space-y-1.5">
-                {visible.map((m) => {
-                  const isSelected = selectedMeeting?.id === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        setSelectedMeeting(isSelected ? null : m);
-                        if (!isSelected) resetSearch();
-                      }}
-                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all duration-150"
-                      style={{
-                        borderColor: isSelected ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.07)",
-                        background: isSelected ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.02)",
-                      }}
-                    >
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                        style={{
-                          background: isSelected ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.07)",
-                        }}
-                      >
-                        {isSelected
-                          ? <Check className="h-3.5 w-3.5" style={{ color: "#d4d4d8" }} />
-                          : <FileText className="h-3.5 w-3.5" style={{ color: "#71717a" }} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-medium truncate" style={{ ...BG, color: isSelected ? "#e4e4e7" : "#a1a1aa" }}>
-                          {m.title}
-                        </p>
-                        <p className="text-[10px] truncate" style={{ color: "#52525b", ...MONO }}>
-                          {new Date(m.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                          {m.attendees?.length ? ` · ${m.attendees.slice(0, 2).join(", ")}` : ""}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-                {hasMore && !meetingFilter && (
-                  <button
-                    onClick={() => setShowAll(!showAll)}
-                    className="w-full py-1.5 text-[11px] font-medium rounded-lg hover:opacity-70 transition-opacity"
-                    style={{ color: "#71717a" }}
-                  >
-                    {showAll ? "Show less" : `+${filtered.length - LIMIT} more`}
+        {scope === "single" && (
+          <>
+            {meetings.length > 6 && (
+              <div
+                className="flex items-center gap-2 rounded-lg border px-2.5 mb-2"
+                style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}
+              >
+                <Search className="h-3 w-3 shrink-0" style={{ color: "rgba(161,161,170,0.4)" }} />
+                <input
+                  placeholder="Filter…"
+                  value={meetingFilter}
+                  onChange={(e) => setMeetingFilter(e.target.value)}
+                  className="flex-1 min-w-0 bg-transparent py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40"
+                />
+                {meetingFilter && (
+                  <button onClick={() => setMeetingFilter("")} className="text-[10px] text-muted-foreground hover:text-foreground">
+                    ✕
                   </button>
                 )}
-                {filtered.length === 0 && meetingFilter && (
-                  <p className="text-center text-[12px] text-muted-foreground py-3">
-                    No matches for &ldquo;{meetingFilter}&rdquo;
-                  </p>
-                )}
-                {meetings.length === 0 && (
-                  <div className="flex flex-col items-center py-8 gap-2">
-                    <FileText className="h-5 w-5" style={{ color: "rgba(161,161,170,0.25)" }} />
-                    <p className="text-[12px] text-muted-foreground">
-                      No meetings yet.{" "}
-                      <Link href="/dashboard/upload" className="underline" style={{ color: "#a1a1aa" }}>Upload one</Link>
-                    </p>
-                  </div>
-                )}
               </div>
-            );
-          })()}
-        </div>
-      )}
+            )}
 
-      {/* Search input */}
-      <div
-        style={{
-          opacity: mode === "all" || selectedMeeting ? 1 : 0.35,
-          pointerEvents: mode === "all" || selectedMeeting ? "auto" : "none",
-          transition: "opacity 0.2s",
-        }}
-      >
+            <div className="max-h-56 md:max-h-none md:flex-1 overflow-y-auto space-y-1 min-h-0">
+              {filteredMeetings.map((m) => {
+                const isSelected = selectedMeeting?.id === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => selectMeeting(isSelected ? null : m)}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all duration-150"
+                    style={{
+                      background: isSelected ? "rgba(255,255,255,0.1)" : "transparent",
+                    }}
+                  >
+                    <div
+                      className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 text-[9px] font-bold"
+                      style={{
+                        background: isSelected ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)",
+                        color: isSelected ? "#e4e4e7" : "#71717a",
+                      }}
+                    >
+                      {isSelected ? <Check className="h-3 w-3" /> : getInitials(m.title)}
+                    </div>
+                    <span
+                      className="text-[12px] font-medium truncate"
+                      style={{ ...BG, color: isSelected ? "#e4e4e7" : "#a1a1aa" }}
+                    >
+                      {m.title}
+                    </span>
+                  </button>
+                );
+              })}
+              {filteredMeetings.length === 0 && meetingFilter && (
+                <p className="text-center text-[11px] text-muted-foreground py-3 px-2">
+                  No matches for &ldquo;{meetingFilter}&rdquo;
+                </p>
+              )}
+              {meetings.length === 0 && (
+                <div className="flex flex-col items-center py-8 gap-2 px-2 text-center">
+                  <FileText className="h-5 w-5" style={{ color: "rgba(161,161,170,0.25)" }} />
+                  <p className="text-[11px] text-muted-foreground">
+                    No meetings yet.{" "}
+                    <Link href="/dashboard/upload" className="underline" style={{ color: "#a1a1aa" }}>Upload one</Link>
+                  </p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {scope === "all" && (
+          <div className="flex flex-col items-center py-6 gap-2 px-2 text-center">
+            <Sparkles className="h-5 w-5" style={{ color: "rgba(161,161,170,0.3)" }} />
+            <p className="text-[11px] text-muted-foreground">
+              Searching across all {meetings.length} meeting{meetings.length === 1 ? "" : "s"}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* RIGHT: search input + results */}
+      <div className="flex-1 px-4 md:px-6 py-5 md:py-6 space-y-5 min-w-0">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "#52525b", ...MONO }}>
+            Search
+          </p>
+          <p className="text-[14px] font-semibold mt-0.5" style={{ color: "#e4e4e7", ...BG }}>
+            {activeMeeting ? activeMeeting.title : "All meetings"}
+          </p>
+        </div>
+
         <form onSubmit={handleSearch}>
           <div
             className="flex items-center gap-2.5 rounded-2xl border px-4 py-0.5 transition-all focus-within:border-white/30"
@@ -282,20 +276,20 @@ export default function SearchPage() {
             <Search className="h-3.5 w-3.5 shrink-0" style={{ color: "rgba(255,255,255,0.3)" }} />
             <input
               placeholder={
-                mode === "all"
-                  ? "Ask anything across all meetings…"
-                  : selectedMeeting
+                scope === "single"
+                  ? activeMeeting
                     ? "Ask about this meeting…"
                     : "Select a meeting first…"
+                  : "Ask anything across all meetings…"
               }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              disabled={mode === "single" && !selectedMeeting}
+              disabled={scope === "single" && !activeMeeting}
               className="flex-1 min-w-0 bg-transparent py-3 text-[13px] outline-none placeholder:text-muted-foreground/30 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
-              disabled={searching || !query.trim()}
+              disabled={searching || !query.trim() || (scope === "single" && !activeMeeting)}
               className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all"
               style={{
                 background: query.trim() ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.08)",
@@ -308,170 +302,142 @@ export default function SearchPage() {
             </button>
           </div>
         </form>
-      </div>
-    </div>
-  );
 
-  /* ── SPLIT layout (after search) ── */
-  if (hasSearched) {
-    return (
-      <div className="flex w-full min-h-[70vh]" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        {/* Left: search controls */}
-        <div
-          className="w-1/2 px-6 py-6 space-y-5 border-r"
-          style={{ borderColor: "rgba(255,255,255,0.06)" }}
-        >
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "#52525b", ...MONO }}>
-              Search
-            </p>
-            <p className="text-[13px] font-semibold mt-0.5" style={{ color: "#a1a1aa", ...BG }}>
-              {mode === "all" ? "All meetings" : "This meeting"}
+        {/* Results */}
+        {!hasSearched && (
+          <div
+            className="flex flex-col items-center justify-center gap-3 py-20 rounded-2xl"
+            style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <Search className="h-5 w-5" style={{ color: "rgba(161,161,170,0.25)" }} />
+            <p className="text-[13px] text-muted-foreground">
+              {scope === "single"
+                ? activeMeeting
+                  ? "Ask a question about this meeting"
+                  : "Select a meeting on the left to search within it"
+                : "Ask a question across every meeting in your workspace"}
             </p>
           </div>
-          {searchControls(true)}
-        </div>
+        )}
 
-        {/* Right: results */}
-        <div className="w-1/2 px-6 py-6 space-y-4">
-          {searching && (
-            <div className="flex flex-col items-center justify-center h-full gap-3 py-20">
-              <Loader2 className="h-5 w-5 animate-spin" style={{ color: "rgba(161,161,170,0.35)" }} />
-              <p className="text-[13px] text-muted-foreground">Searching…</p>
-            </div>
-          )}
+        {searching && (
+          <div className="flex flex-col items-center justify-center gap-3 py-20">
+            <Loader2 className="h-5 w-5 animate-spin" style={{ color: "rgba(161,161,170,0.35)" }} />
+            <p className="text-[13px] text-muted-foreground">Searching…</p>
+          </div>
+        )}
 
-          {answer && !searching && (
-            <>
-              {/* AI Answer */}
-              <div
-                className="rounded-2xl p-5"
-                style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderLeft: "3px solid rgba(255,255,255,0.3)",
-                }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="h-3.5 w-3.5" style={{ color: "#a1a1aa" }} />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#71717a", ...MONO }}>
-                    AI Answer
-                  </p>
-                </div>
-                <p className="text-[14px] leading-relaxed whitespace-pre-wrap text-foreground">
-                  {answer}
+        {answer && !searching && (
+          <>
+            {/* AI Answer */}
+            <div
+              className="rounded-2xl p-5"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderLeft: "3px solid rgba(255,255,255,0.3)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="h-3.5 w-3.5" style={{ color: "#a1a1aa" }} />
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#71717a", ...MONO }}>
+                  AI Answer
                 </p>
               </div>
+              <p className="text-[14px] leading-relaxed whitespace-pre-wrap text-foreground">
+                {answer}
+              </p>
+            </div>
 
-              {/* Sources */}
-              {sources.length > 0 && (
+            {/* Sources */}
+            {sources.length > 0 && (
+              <div
+                className="rounded-2xl overflow-hidden"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
                 <div
-                  className="rounded-2xl overflow-hidden"
-                  style={{
-                    background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                  }}
+                  className="px-5 py-3 flex items-center justify-between border-b"
+                  style={{ borderColor: "rgba(255,255,255,0.06)" }}
                 >
-                  <div
-                    className="px-5 py-3 flex items-center justify-between border-b"
-                    style={{ borderColor: "rgba(255,255,255,0.06)" }}
-                  >
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#52525b", ...MONO }}>
-                      Sources
-                    </p>
-                    <span className="text-[10px]" style={{ color: "#3f3f46", ...MONO }}>
-                      {sources.length} quote{sources.length > 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <div className="p-4 space-y-4">
-                    {sources.map((s, i) => {
-                      const color = AVATAR_COLORS[i % AVATAR_COLORS.length];
-                      return (
-                        <div key={i} className="flex gap-3">
-                          <div className="shrink-0 flex flex-col items-center gap-1">
-                            <div
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold"
-                              style={{ background: `${color}18`, color, border: `1px solid ${color}28` }}
-                            >
-                              {getInitials(s.speaker)}
-                            </div>
-                            {i < sources.length - 1 && (
-                              <div className="w-px flex-1 min-h-3" style={{ background: "rgba(255,255,255,0.04)" }} />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "#52525b", ...MONO }}>
+                    Sources
+                  </p>
+                  <span className="text-[10px]" style={{ color: "#3f3f46", ...MONO }}>
+                    {sources.length} quote{sources.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="p-4 space-y-4">
+                  {sources.map((s, i) => {
+                    const color = AVATAR_COLORS[i % AVATAR_COLORS.length];
+                    return (
+                      <div key={i} className="flex gap-3">
+                        <div className="shrink-0 flex flex-col items-center gap-1">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold"
+                            style={{ background: `${color}18`, color, border: `1px solid ${color}28` }}
+                          >
+                            {getInitials(s.speaker)}
+                          </div>
+                          {i < sources.length - 1 && (
+                            <div className="w-px flex-1 min-h-3" style={{ background: "rgba(255,255,255,0.04)" }} />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 pb-1">
+                          <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                            <span className="text-[12px] font-semibold" style={{ color }}>
+                              {s.speaker}
+                            </span>
+                            <span className="text-[10px]" style={{ color: "#3f3f46", ...MONO }}>
+                              {formatTimestamp(s.timestamp)}
+                            </span>
+                            {!activeMeeting && s.meeting_title && (
+                              <Link
+                                href={s.meeting_id ? `/dashboard/meetings/${s.meeting_id}` : "#"}
+                                className="text-[10px] font-medium hover:underline"
+                                style={{ color: "#71717a" }}
+                              >
+                                {s.meeting_title}
+                              </Link>
                             )}
                           </div>
-                          <div className="flex-1 min-w-0 pb-1">
-                            <div className="flex items-baseline gap-2 mb-1 flex-wrap">
-                              <span className="text-[12px] font-semibold" style={{ color }}>
-                                {s.speaker}
-                              </span>
-                              <span className="text-[10px]" style={{ color: "#3f3f46", ...MONO }}>
-                                {formatTimestamp(s.timestamp)}
-                              </span>
-                              {mode === "all" && s.meeting_title && (
-                                <Link
-                                  href={s.meeting_id ? `/dashboard/meetings/${s.meeting_id}` : "#"}
-                                  className="text-[10px] font-medium hover:underline"
-                                  style={{ color: "#71717a" }}
-                                >
-                                  {s.meeting_title}
-                                </Link>
-                              )}
-                            </div>
-                            <p className="text-[13px] leading-relaxed italic" style={{ color: "#71717a" }}>
-                              &ldquo;{s.text}&rdquo;
-                            </p>
-                          </div>
+                          <p className="text-[13px] leading-relaxed italic" style={{ color: "#71717a" }}>
+                            &ldquo;{s.text}&rdquo;
+                          </p>
                         </div>
-                      );
-                    })}
-                  </div>
-                  {mode === "single" && selectedMeeting && (
-                    <div className="px-5 py-3 border-t flex justify-center" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                      <Link
-                        href={`/dashboard/meetings/${selectedMeeting.id}`}
-                        className="inline-flex items-center gap-1.5 text-[12px] font-medium hover:opacity-70 transition-opacity"
-                        style={{ color: "#a1a1aa" }}
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        View full transcript
-                      </Link>
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </>
-          )}
+                {activeMeeting && (
+                  <div className="px-5 py-3 border-t flex justify-center" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <Link
+                      href={`/dashboard/meetings/${activeMeeting.id}`}
+                      className="inline-flex items-center gap-1.5 text-[12px] font-medium hover:opacity-70 transition-opacity"
+                      style={{ color: "#a1a1aa" }}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      View full transcript
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
 
-          {/* No results */}
-          {!searching && !answer && (
-            <div
-              className="flex flex-col items-center justify-center h-full gap-3 py-20 rounded-2xl"
-              style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              <Search className="h-5 w-5" style={{ color: "rgba(161,161,170,0.25)" }} />
-              <p className="text-[13px] text-muted-foreground">No results found. Try rephrasing.</p>
-            </div>
-          )}
-        </div>
+        {hasSearched && !searching && !answer && (
+          <div
+            className="flex flex-col items-center justify-center gap-3 py-20 rounded-2xl"
+            style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <Search className="h-5 w-5" style={{ color: "rgba(161,161,170,0.25)" }} />
+            <p className="text-[13px] text-muted-foreground">No results found. Try rephrasing.</p>
+          </div>
+        )}
       </div>
-    );
-  }
-
-  /* ── CENTERED layout (before search) ── */
-  return (
-    <div className="mx-auto max-w-xl space-y-8 py-6">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-[28px] font-bold tracking-tight" style={BG}>
-          Search your meetings
-        </h1>
-        <p className="text-[13px] text-muted-foreground mt-1.5">
-          {mode === "single"
-            ? "Pick a meeting, ask a question, get an instant answer"
-            : "Ask a question across every meeting in your workspace"}
-        </p>
-      </div>
-      {searchControls(false)}
     </div>
   );
 }

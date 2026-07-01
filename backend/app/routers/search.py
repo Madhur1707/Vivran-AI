@@ -1,4 +1,5 @@
 import json
+import re
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -6,6 +7,21 @@ from pydantic import BaseModel
 from app.config import settings
 
 router = APIRouter()
+
+# Small stopword list (kept short since 'simple' tsvector config is used for
+# Hindi/Hinglish support and has no built-in stopword removal) so an OR query
+# built from the user's words isn't drowned out by filler terms.
+STOPWORDS = {
+    "the", "and", "for", "are", "was", "were", "this", "that", "with",
+    "from", "have", "has", "had", "not", "but", "you", "your", "what",
+    "when", "where", "how", "why", "who", "which", "also", "about",
+    "there", "their", "them", "these", "those", "been", "being",
+}
+
+
+def significant_words(text: str) -> list[str]:
+    words = re.findall(r"\w+", text.lower())
+    return [w for w in words if len(w) > 2 and w not in STOPWORDS]
 
 
 class SearchRequest(BaseModel):
@@ -94,16 +110,55 @@ async def search_all_meetings(req: SearchAllRequest):
 
     supabase = create_client(settings.supabase_url, settings.supabase_service_key)
     try:
+        words = significant_words(req.query)
+        # OR the terms together instead of requiring every single word to
+        # appear in the same chunk (plainto_tsquery ANDs everything, which
+        # almost never matches a natural-language question).
+        tsquery = " | ".join(words) if words else req.query
+
         result = (
             supabase.table("meeting_chunks")
-            .select("meeting_id, speaker, start_time, text, meetings(title)")
+            .select("meeting_id, chunk_index, speaker, start_time, text, meetings(title)")
             .eq("workspace_id", req.workspace_id)
-            .filter("search_vector", "plfts(simple)", req.query)
-            .limit(15)
+            .filter("search_vector", "fts(simple)", tsquery)
+            .order("chunk_index")
+            .limit(20)
             .execute()
         )
-
         chunks = result.data or []
+
+
+        if words:
+            meetings_result = (
+                supabase.table("meetings")
+                .select("id, title")
+                .eq("workspace_id", req.workspace_id)
+                .eq("status", "completed")
+                .execute()
+            )
+            word_set = set(words)
+            matched_ids = {
+                m["id"] for m in (meetings_result.data or [])
+                if word_set & set(significant_words(m["title"]))
+            }
+            title_only_ids = matched_ids - {c["meeting_id"] for c in chunks}
+
+            if title_only_ids:
+                extra_result = (
+                    supabase.table("meeting_chunks")
+                    .select("meeting_id, chunk_index, speaker, start_time, text, meetings(title)")
+                    .in_("meeting_id", list(title_only_ids))
+                    .order("chunk_index")
+                    .execute()
+                )
+                per_meeting_count: dict[str, int] = {}
+                for c in extra_result.data or []:
+                    mid = c["meeting_id"]
+                    if per_meeting_count.get(mid, 0) >= 8:
+                        continue
+                    per_meeting_count[mid] = per_meeting_count.get(mid, 0) + 1
+                    chunks.append(c)
+
         if not chunks:
             return {"answer": "", "sources": []}
 
@@ -153,12 +208,13 @@ Return ONLY valid JSON."""
         content = response.json()["choices"][0]["message"]["content"]
         data = json.loads(content)
 
+
         meeting_id_by_title = {
-            (c.get("meetings") or {}).get("title", "Untitled"): c["meeting_id"] for c in chunks
+            (c.get("meetings") or {}).get("title", "Untitled").strip(): c["meeting_id"] for c in chunks
         }
         sources = data.get("sources", [])
         for s in sources:
-            s["meeting_id"] = meeting_id_by_title.get(s.get("meeting_title"))
+            s["meeting_id"] = meeting_id_by_title.get((s.get("meeting_title") or "").strip())
 
         return {
             "answer": data.get("answer", ""),

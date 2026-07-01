@@ -12,12 +12,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
   LayoutDashboard,
   Upload,
   Search,
   LogOut,
   Users,
   Loader2,
+  Menu,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { User } from "@supabase/supabase-js";
@@ -41,6 +49,7 @@ export function DashboardShell({
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -131,6 +140,42 @@ export function DashboardShell({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+              <SheetTrigger className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-accent cursor-pointer md:hidden">
+                <Menu className="h-4.5 w-4.5" />
+              </SheetTrigger>
+              <SheetContent side="right" className="w-64">
+                <SheetHeader>
+                  <SheetTitle style={BG}>Menu</SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col gap-1">
+                  {navItems.map((item) => {
+                    const isActive =
+                      item.href === "/dashboard"
+                        ? pathname === "/dashboard"
+                        : pathname.startsWith(item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileNavOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150"
+                        style={{
+                          background: isActive
+                            ? "rgba(255,255,255,0.1)"
+                            : "transparent",
+                          color: isActive ? "#d4d4d8" : undefined,
+                        }}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>
