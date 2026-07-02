@@ -25,7 +25,7 @@ def significant_words(text: str) -> list[str]:
 
 
 # ~150 words per chunk, so 20 chunks ≈ 3k words — the same context size the
-# cross-meeting search sends, which stays inside Groq's request limits.
+# cross-meeting search sends, which stays inside the LLM's request limits.
 MAX_CONTEXT_CHUNKS = 20
 
 
@@ -48,8 +48,67 @@ class SearchAllRequest(BaseModel):
     query: str
 
 
-@router.post("/search")
-async def search_meeting(req: SearchRequest):
+# Text search (this router) defaults to Groq. Voice search (app/routers/voice.py)
+# calls the same retrieval logic below but passes Cerebras' config instead —
+# splitting providers so the two features draw from separate free-tier rate
+# limits instead of sharing one.
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
+
+# The "answer" text is sent straight to text-to-speech for voice search, so
+# it can't contain bullet points or inline "(Name, 12s)" citations — those
+# read fine on screen but sound wrong spoken aloud. The sources array still
+# carries speaker/timestamp separately for the on-screen list either way.
+SPEECH_RULES = """- Answer based only on what's in the excerpts. If the answer isn't there, say so.
+- Write the answer as natural spoken sentences, the way you'd say it out loud to someone — no bullet points, no numbered lists, and don't read out speaker names or timestamps inline.
+- Be concise: a few sentences."""
+
+SINGLE_MEETING_RULES = """- Answer based only on what's in the excerpts. If the answer isn't there, say so.
+- The excerpts are only parts of the meeting, so never claim something wasn't discussed — say it doesn't appear in the retrieved excerpts.
+- Quote the relevant parts directly.
+- Mention who said it and at what timestamp.
+- Be concise and direct."""
+
+CROSS_MEETING_RULES = """- Answer based only on what's in the excerpts. If the answer isn't there, say so.
+- Quote the relevant parts directly.
+- Mention which meeting and who said it, with the timestamp.
+- Be concise and direct."""
+
+
+def _answer_rules(speech_style: bool, default_rules: str) -> str:
+    return SPEECH_RULES if speech_style else default_rules
+
+
+async def ask_llm(prompt: str, *, base_url: str, api_key: str, model: str) -> dict:
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.post(
+            base_url,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.2,
+                "response_format": {"type": "json_object"},
+            },
+        )
+        response.raise_for_status()
+
+    content = response.json()["choices"][0]["message"]["content"]
+    return json.loads(content)
+
+
+async def _search_meeting(
+    req: SearchRequest,
+    *,
+    llm_base_url: str = GROQ_URL,
+    llm_api_key: str | None = None,
+    llm_model: str = GROQ_MODEL,
+    speech_style: bool = False,
+) -> dict:
     import traceback as tb
     from supabase import create_client
 
@@ -66,9 +125,9 @@ async def search_meeting(req: SearchRequest):
     title = result.data.get("title", "Untitled")
 
     try:
-        # A long meeting's full transcript doesn't fit in one Groq request,
-        # so retrieve the chunks matching the question (same FTS as
-        # /search-all, scoped to this meeting).
+        # A long meeting's full transcript doesn't fit in one request, so
+        # retrieve the chunks matching the question (same FTS as /search-all,
+        # scoped to this meeting).
         words = significant_words(req.query)
         tsquery = " | ".join(words) if words else req.query
 
@@ -116,11 +175,7 @@ EXCERPTS:
 USER QUESTION: {req.query}
 
 Rules:
-- Answer based only on what's in the excerpts. If the answer isn't there, say so.
-- The excerpts are only parts of the meeting, so never claim something wasn't discussed — say it doesn't appear in the retrieved excerpts.
-- Quote the relevant parts directly.
-- Mention who said it and at what timestamp.
-- Be concise and direct.
+{_answer_rules(speech_style, SINGLE_MEETING_RULES)}
 - Return a JSON object with:
 {{
   "answer": "your answer to the question",
@@ -130,24 +185,12 @@ Rules:
 }}
 Return ONLY valid JSON."""
 
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.groq_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.2,
-                    "response_format": {"type": "json_object"},
-                },
-            )
-            response.raise_for_status()
-
-        content = response.json()["choices"][0]["message"]["content"]
-        data = json.loads(content)
+        data = await ask_llm(
+            prompt,
+            base_url=llm_base_url,
+            api_key=llm_api_key or settings.groq_api_key,
+            model=llm_model,
+        )
 
         return {
             "answer": data.get("answer", ""),
@@ -165,8 +208,19 @@ Return ONLY valid JSON."""
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/search-all")
-async def search_all_meetings(req: SearchAllRequest):
+@router.post("/search")
+async def search_meeting(req: SearchRequest):
+    return await _search_meeting(req)
+
+
+async def _search_all_meetings(
+    req: SearchAllRequest,
+    *,
+    llm_base_url: str = GROQ_URL,
+    llm_api_key: str | None = None,
+    llm_model: str = GROQ_MODEL,
+    speech_style: bool = False,
+) -> dict:
     import traceback as tb
     from supabase import create_client
 
@@ -188,7 +242,6 @@ async def search_all_meetings(req: SearchAllRequest):
             .execute()
         )
         chunks = result.data or []
-
 
         if words:
             meetings_result = (
@@ -238,10 +291,7 @@ EXCERPTS:
 USER QUESTION: {req.query}
 
 Rules:
-- Answer based only on what's in the excerpts. If the answer isn't there, say so.
-- Quote the relevant parts directly.
-- Mention which meeting and who said it, with the timestamp.
-- Be concise and direct.
+{_answer_rules(speech_style, CROSS_MEETING_RULES)}
 - Return a JSON object with:
 {{
   "answer": "your answer to the question",
@@ -251,25 +301,12 @@ Rules:
 }}
 Return ONLY valid JSON."""
 
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.groq_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.2,
-                    "response_format": {"type": "json_object"},
-                },
-            )
-            response.raise_for_status()
-
-        content = response.json()["choices"][0]["message"]["content"]
-        data = json.loads(content)
-
+        data = await ask_llm(
+            prompt,
+            base_url=llm_base_url,
+            api_key=llm_api_key or settings.groq_api_key,
+            model=llm_model,
+        )
 
         meeting_id_by_title = {
             (c.get("meetings") or {}).get("title", "Untitled").strip(): c["meeting_id"] for c in chunks
@@ -285,3 +322,8 @@ Return ONLY valid JSON."""
     except Exception as e:
         tb.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/search-all")
+async def search_all_meetings(req: SearchAllRequest):
+    return await _search_all_meetings(req)

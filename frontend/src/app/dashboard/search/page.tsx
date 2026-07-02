@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Search,
@@ -10,6 +10,8 @@ import {
   ArrowRight,
   Check,
   Sparkles,
+  Mic,
+  Square,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -53,6 +55,11 @@ export default function SearchPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [voiceLoading, setVoiceLoading] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     async function loadMeetings() {
@@ -135,6 +142,86 @@ export default function SearchPage() {
       setAnswer(`Something went wrong. Please try again.${detail}`);
     } finally {
       setSearching(false);
+    }
+  }
+
+  const voiceDisabled = (scope === "single" && !activeMeeting) || (scope === "all" && !workspaceId);
+
+  async function startRecording() {
+    if (voiceDisabled || recording || voiceLoading) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      audioChunksRef.current = [];
+
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        handleVoiceQuery(blob);
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setHasSearched(true);
+      setAnswer("Couldn't access your microphone. Check your browser's mic permissions and try again.");
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    setRecording(false);
+  }
+
+  async function handleVoiceQuery(blob: Blob) {
+    setVoiceLoading(true);
+    setHasSearched(true);
+    setAnswer("");
+    setSources([]);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const formData = new FormData();
+      formData.append("audio", blob, "query.webm");
+      if (activeMeeting) {
+        formData.append("meeting_id", activeMeeting.id);
+      } else if (workspaceId) {
+        formData.append("workspace_id", workspaceId);
+      }
+
+      const res = await fetch(`${apiUrl}/api/voice-search`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const detail = await res
+          .json()
+          .then((d) => d?.detail)
+          .catch(() => null);
+        throw new Error(typeof detail === "string" ? detail : "");
+      }
+
+      const data = await res.json();
+      setQuery(data.query_text ?? "");
+      setAnswer(data.answer ?? "");
+      setSources(data.sources ?? []);
+
+      if (data.audio_base64) {
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
+        audio.play().catch(() => {});
+      }
+    } catch (err) {
+      const detail = err instanceof Error && err.message ? ` (${err.message})` : "";
+      setAnswer(`Something went wrong. Please try again.${detail}`);
+    } finally {
+      setVoiceLoading(false);
     }
   }
 
@@ -291,12 +378,27 @@ export default function SearchPage() {
               }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              disabled={scope === "single" && !activeMeeting}
+              disabled={(scope === "single" && !activeMeeting) || recording || voiceLoading}
               className="flex-1 min-w-0 bg-transparent py-3 text-[13px] outline-none placeholder:text-muted-foreground/30 disabled:cursor-not-allowed"
             />
             <button
+              type="button"
+              onClick={recording ? stopRecording : startRecording}
+              disabled={voiceDisabled || voiceLoading}
+              title={recording ? "Stop recording" : "Ask by voice"}
+              className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+              style={{
+                background: recording ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.08)",
+                color: recording ? "#ef4444" : "#a1a1aa",
+              }}
+            >
+              {recording
+                ? <Square className="h-3 w-3 fill-current" />
+                : <Mic className="h-3.5 w-3.5" />}
+            </button>
+            <button
               type="submit"
-              disabled={searching || !query.trim() || (scope === "single" && !activeMeeting)}
+              disabled={searching || voiceLoading || recording || !query.trim() || (scope === "single" && !activeMeeting)}
               className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all"
               style={{
                 background: query.trim() ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.08)",
@@ -309,6 +411,16 @@ export default function SearchPage() {
             </button>
           </div>
         </form>
+
+        {recording && (
+          <div className="flex items-center gap-2 -mt-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#ef4444" }} />
+              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#ef4444" }} />
+            </span>
+            <p className="text-[12px]" style={{ color: "#ef4444" }}>Listening… click the square to stop</p>
+          </div>
+        )}
 
         {/* Results */}
         {!hasSearched && (
@@ -327,14 +439,16 @@ export default function SearchPage() {
           </div>
         )}
 
-        {searching && (
+        {(searching || voiceLoading) && (
           <div className="flex flex-col items-center justify-center gap-3 py-20">
             <Loader2 className="h-5 w-5 animate-spin" style={{ color: "rgba(161,161,170,0.35)" }} />
-            <p className="text-[13px] text-muted-foreground">Searching…</p>
+            <p className="text-[13px] text-muted-foreground">
+              {voiceLoading ? "Transcribing, thinking, and preparing a spoken answer…" : "Searching…"}
+            </p>
           </div>
         )}
 
-        {answer && !searching && (
+        {answer && !searching && !voiceLoading && (
           <>
             {/* AI Answer */}
             <div
@@ -435,7 +549,7 @@ export default function SearchPage() {
           </>
         )}
 
-        {hasSearched && !searching && !answer && (
+        {hasSearched && !searching && !voiceLoading && !answer && (
           <div
             className="flex flex-col items-center justify-center gap-3 py-20 rounded-2xl"
             style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
