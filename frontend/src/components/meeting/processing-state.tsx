@@ -1,7 +1,18 @@
-import { Loader2 } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { Loader2, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { BG } from "@/lib/meeting-utils";
 
-export function ProcessingState({ status }: { status: "queued" | "processing" }) {
+export function ProcessingState({
+  status,
+  stage,
+}: {
+  status: "queued" | "processing";
+  stage?: string | null;
+}) {
   return (
     <div
       className="flex flex-col items-center justify-center py-20 rounded-2xl border"
@@ -25,13 +36,34 @@ export function ProcessingState({ status }: { status: "queued" | "processing" })
       <p className="text-sm text-muted-foreground">
         {status === "queued"
           ? "Your meeting will be processed shortly"
-          : "Transcribing audio and identifying speakers"}
+          : stage ?? "Transcribing audio and identifying speakers"}
       </p>
     </div>
   );
 }
 
-export function FailedState() {
+export function FailedState({
+  onRetry,
+  errorDetail,
+  hasTranscript,
+}: {
+  onRetry?: () => Promise<void>;
+  errorDetail?: string | null;
+  hasTranscript?: boolean;
+}) {
+  const [retrying, setRetrying] = useState(false);
+
+  async function handleRetry() {
+    if (!onRetry) return;
+    setRetrying(true);
+    try {
+      await onRetry();
+    } catch {
+      toast.error("Could not restart processing. Is the backend running?");
+      setRetrying(false);
+    }
+  }
+
   return (
     <div
       className="flex flex-col items-center justify-center py-20 rounded-2xl border"
@@ -45,8 +77,36 @@ export function FailedState() {
         Processing failed
       </h3>
       <p className="text-sm text-muted-foreground">
-        Something went wrong. Please try uploading again.
+        {hasTranscript
+          ? "The transcript is safe — retrying will only redo the analysis."
+          : "Something went wrong while processing this meeting."}
       </p>
+      {errorDetail && (
+        <p className="mt-3 max-w-xl px-6 text-center text-xs text-muted-foreground/70 wrap-break-word">
+          {errorDetail}
+        </p>
+      )}
+      {onRetry && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-5"
+          onClick={handleRetry}
+          disabled={retrying}
+        >
+          {retrying ? (
+            <>
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              Restarting...
+            </>
+          ) : (
+            <>
+              <RotateCcw className="mr-2 h-3.5 w-3.5" />
+              Retry processing
+            </>
+          )}
+        </Button>
+      )}
     </div>
   );
 }

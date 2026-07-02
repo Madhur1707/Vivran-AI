@@ -408,7 +408,7 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
                             </div>
                           )}
                         </div>
-                        <span className="text-[11px] text-muted-foreground truncate max-w-[140px]">
+                        <span className="text-[11px] text-muted-foreground truncate max-w-35">
                           {attendeeNames.slice(0, 2).join(", ")}
                           {attendeeNames.length > 2 &&
                             ` +${attendeeNames.length - 2}`}

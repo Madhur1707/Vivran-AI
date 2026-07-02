@@ -91,6 +91,21 @@ async def remap_speakers(req: RemapSpeakersRequest):
 
     supabase.table("meetings").update(update_data).eq("id", req.meeting_id).execute()
 
+    # The action_items table was populated with "Speaker N" owners — rename
+    # them in place (not delete/recreate) to keep done/assigned state.
+    try:
+        rows = supabase.table("action_items").select("id, owner, task").eq(
+            "meeting_id", req.meeting_id
+        ).execute()
+        for row in rows.data or []:
+            supabase.table("action_items").update({
+                "owner": req.speaker_map.get(row["owner"], row["owner"]),
+                "task": replace_speakers_in_text(row["task"], req.speaker_map),
+            }).eq("id", row["id"]).execute()
+    except Exception:
+        print(f"[{req.meeting_id}] Renaming action item owners failed:")
+        traceback.print_exc()
+
     # Cross-meeting search reads from meeting_chunks, which was indexed with
     # the raw "Speaker N" labels right after transcription — re-index it now
     # so renamed speakers show up in search results too.

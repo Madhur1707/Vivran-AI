@@ -24,6 +24,20 @@ def significant_words(text: str) -> list[str]:
     return [w for w in words if len(w) > 2 and w not in STOPWORDS]
 
 
+# ~150 words per chunk, so 20 chunks ≈ 3k words — the same context size the
+# cross-meeting search sends, which stays inside Groq's request limits.
+MAX_CONTEXT_CHUNKS = 20
+
+
+def sample_evenly(items: list, limit: int) -> list:
+    """Take up to `limit` items spread evenly across the list, so a long
+    meeting is represented start-to-end instead of just its beginning."""
+    if len(items) <= limit:
+        return items
+    step = len(items) / limit
+    return [items[int(i * step)] for i in range(limit)]
+
+
 class SearchRequest(BaseModel):
     meeting_id: str
     query: str
@@ -36,6 +50,7 @@ class SearchAllRequest(BaseModel):
 
 @router.post("/search")
 async def search_meeting(req: SearchRequest):
+    import traceback as tb
     from supabase import create_client
 
     supabase = create_client(settings.supabase_url, settings.supabase_service_key)
@@ -50,21 +65,59 @@ async def search_meeting(req: SearchRequest):
     transcript = result.data["transcript"]
     title = result.data.get("title", "Untitled")
 
-    transcript_text = "\n".join(
-        f"[{seg.get('start', 0):.0f}s] {seg['speaker']}: {seg['text']}"
-        for seg in transcript
-    )
+    try:
+        # A long meeting's full transcript doesn't fit in one Groq request,
+        # so retrieve the chunks matching the question (same FTS as
+        # /search-all, scoped to this meeting).
+        words = significant_words(req.query)
+        tsquery = " | ".join(words) if words else req.query
 
-    prompt = f"""You are a meeting search assistant. Answer the user's question based ONLY on this meeting transcript.
+        chunk_result = (
+            supabase.table("meeting_chunks")
+            .select("chunk_index, speaker, start_time, text")
+            .eq("meeting_id", req.meeting_id)
+            .filter("search_vector", "fts(simple)", tsquery)
+            .order("chunk_index")
+            .limit(MAX_CONTEXT_CHUNKS)
+            .execute()
+        )
+        chunks = chunk_result.data or []
+
+        # Broad questions ("what was the agenda?") often match no chunk by
+        # keyword — fall back to an even sample of the whole meeting.
+        if not chunks:
+            all_result = (
+                supabase.table("meeting_chunks")
+                .select("chunk_index, speaker, start_time, text")
+                .eq("meeting_id", req.meeting_id)
+                .order("chunk_index")
+                .execute()
+            )
+            chunks = sample_evenly(all_result.data or [], MAX_CONTEXT_CHUNKS)
+
+        # Meetings processed before chunk indexing existed have no rows in
+        # meeting_chunks — chunk the stored transcript on the fly instead.
+        if not chunks:
+            from app.services.transcribe import chunk_transcript
+
+            chunks = sample_evenly(chunk_transcript(transcript), MAX_CONTEXT_CHUNKS)
+
+        excerpts = "\n\n".join(
+            f"[{(c.get('start_time') or 0):.0f}s | {c.get('speaker') or 'Unknown'}]\n{c['text']}"
+            for c in chunks
+        )
+
+        prompt = f"""You are a meeting search assistant. Answer the user's question based ONLY on these excerpts from the meeting transcript.
 
 MEETING: {title}
-TRANSCRIPT:
-{transcript_text}
+EXCERPTS:
+{excerpts}
 
 USER QUESTION: {req.query}
 
 Rules:
-- Answer based only on what's in the transcript. If the answer isn't there, say so.
+- Answer based only on what's in the excerpts. If the answer isn't there, say so.
+- The excerpts are only parts of the meeting, so never claim something wasn't discussed — say it doesn't appear in the retrieved excerpts.
 - Quote the relevant parts directly.
 - Mention who said it and at what timestamp.
 - Be concise and direct.
@@ -77,30 +130,39 @@ Rules:
 }}
 Return ONLY valid JSON."""
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.groq_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "llama-3.3-70b-versatile",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.2,
-                "response_format": {"type": "json_object"},
-            },
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.2,
+                    "response_format": {"type": "json_object"},
+                },
+            )
+            response.raise_for_status()
+
+        content = response.json()["choices"][0]["message"]["content"]
+        data = json.loads(content)
+
+        return {
+            "answer": data.get("answer", ""),
+            "sources": data.get("sources", []),
+            "meeting_title": title,
+        }
+    except httpx.HTTPStatusError as e:
+        tb.print_exc()
+        raise HTTPException(
+            status_code=502,
+            detail=f"AI request failed ({e.response.status_code})",
         )
-        response.raise_for_status()
-
-    content = response.json()["choices"][0]["message"]["content"]
-    data = json.loads(content)
-
-    return {
-        "answer": data.get("answer", ""),
-        "sources": data.get("sources", []),
-        "meeting_title": title,
-    }
+    except Exception as e:
+        tb.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/search-all")

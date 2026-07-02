@@ -120,12 +120,19 @@ export default function SearchPage() {
         body: JSON.stringify(body),
       });
 
-      if (!res.ok) throw new Error("Search failed");
+      if (!res.ok) {
+        const detail = await res
+          .json()
+          .then((d) => d?.detail)
+          .catch(() => null);
+        throw new Error(typeof detail === "string" ? detail : "");
+      }
       const data = await res.json();
       setAnswer(data.answer ?? "");
       setSources(data.sources ?? []);
-    } catch {
-      setAnswer("Something went wrong. Please try again.");
+    } catch (err) {
+      const detail = err instanceof Error && err.message ? ` (${err.message})` : "";
+      setAnswer(`Something went wrong. Please try again.${detail}`);
     } finally {
       setSearching(false);
     }

@@ -19,6 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
+  CheckSquare,
   LayoutDashboard,
   Upload,
   Search,
@@ -36,6 +37,7 @@ const navItems = [
   { href: "/dashboard", label: "Meetings", icon: LayoutDashboard },
   { href: "/dashboard/upload", label: "Upload", icon: Upload },
   { href: "/dashboard/search", label: "Search", icon: Search },
+  { href: "/dashboard/actions", label: "Action Items", icon: CheckSquare },
   { href: "/dashboard/team", label: "Team", icon: Users },
 ];
 

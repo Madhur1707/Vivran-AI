@@ -36,4 +36,7 @@ export interface Meeting {
   email_sent: boolean | null;
   email_sent_to: string[] | null;
   workspace_id: string | null;
+  audio_url: string | null;
+  processing_stage: string | null;
+  error_detail: string | null;
 }

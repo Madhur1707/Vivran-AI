@@ -11,6 +11,7 @@ import {
   FileText,
   HelpCircle,
   Lightbulb,
+  Loader2,
   Mail,
   Users,
 } from "lucide-react";
@@ -27,8 +28,28 @@ import { ActionItemsTab } from "@/components/meeting/action-items-tab";
 import { QuestionsTab } from "@/components/meeting/questions-tab";
 import { FollowUpEmailPanel } from "@/components/meeting/follow-up-email-panel";
 
+function GeneratingPlaceholder({ label }: { label: string }) {
+  return (
+    <div
+      className="flex items-center justify-center gap-2 py-12 rounded-2xl border text-sm text-muted-foreground"
+      style={{
+        borderColor: "rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.02)",
+      }}
+    >
+      <Loader2 className="h-4 w-4 animate-spin" />
+      Generating {label}...
+    </div>
+  );
+}
+
 export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
   const [meeting, setMeeting] = useState<Meeting>(initial);
+
+  const hasTranscript = !!meeting.transcript?.length;
+  // Transcript is saved before analysis runs, so we can show it while the
+  // summary/action items are still being generated.
+  const isAnalyzing = meeting.status === "processing" && hasTranscript;
 
   useEffect(() => {
     if (meeting.status === "completed" || meeting.status === "failed") return;
@@ -44,8 +65,15 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
           table: "meetings",
           filter: `id=eq.${meeting.id}`,
         },
-        (payload) => {
-          setMeeting(payload.new as Meeting);
+        () => {
+          supabase
+            .from("meetings")
+            .select("*")
+            .eq("id", meeting.id)
+            .single()
+            .then(({ data }) => {
+              if (data) setMeeting(data as Meeting);
+            });
         }
       )
       .subscribe();
@@ -62,6 +90,32 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
     !meeting.speakers_mapped &&
     meeting.attendees &&
     meeting.attendees.length > 0;
+
+  async function handleRetryProcessing() {
+    if (!meeting.workspace_id || !meeting.audio_url) {
+      throw new Error("Meeting is missing audio or workspace info");
+    }
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+    const res = await fetch(`${apiUrl}/api/process`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        meeting_id: meeting.id,
+        workspace_id: meeting.workspace_id,
+        audio_url: meeting.audio_url,
+        attendees: meeting.attendees ?? [],
+        language: "en",
+      }),
+    });
+    if (!res.ok) {
+      throw new Error("Failed to restart processing");
+    }
+
+    // Flip back to queued locally — this also re-arms the realtime
+    // subscription (the effect above skips failed/completed meetings).
+    setMeeting((prev) => ({ ...prev, status: "queued" }));
+  }
 
   function handleSpeakersMapped(
     updated: TranscriptSegment[],
@@ -156,12 +210,37 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
         <StatusBadge status={meeting.status} />
       </div>
 
-      {meeting.status === "queued" || meeting.status === "processing" ? (
-        <ProcessingState status={meeting.status} />
+      {meeting.status === "queued" ||
+      (meeting.status === "processing" && !hasTranscript) ? (
+        <ProcessingState
+          status={meeting.status}
+          stage={meeting.processing_stage}
+        />
       ) : meeting.status === "failed" ? (
-        <FailedState />
+        <FailedState
+          onRetry={handleRetryProcessing}
+          errorDetail={meeting.error_detail}
+          hasTranscript={hasTranscript}
+        />
       ) : (
         <>
+          {isAnalyzing && (
+            <div
+              className="flex items-center gap-2.5 rounded-xl border px-4 py-3 text-[13px] text-muted-foreground"
+              style={{
+                borderColor: "rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.03)",
+              }}
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+              <span>
+                {meeting.processing_stage ?? "Analyzing meeting"} — the
+                transcript is ready below; summary and action items will
+                appear automatically.
+              </span>
+            </div>
+          )}
+
           {needsSpeakerMapping && (
             <SpeakerMappingUI
               transcript={meeting.transcript!}
@@ -202,19 +281,33 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
             </TabsContent>
 
             <TabsContent value="summary" className="mt-5">
-              <SummaryTab meeting={meeting} />
+              {isAnalyzing && !meeting.summary ? (
+                <GeneratingPlaceholder label="summary" />
+              ) : (
+                <SummaryTab meeting={meeting} />
+              )}
             </TabsContent>
 
             <TabsContent value="actions" className="mt-5">
-              <ActionItemsTab meeting={meeting} />
+              {isAnalyzing && !meeting.action_items ? (
+                <GeneratingPlaceholder label="action items" />
+              ) : (
+                <ActionItemsTab meeting={meeting} />
+              )}
             </TabsContent>
 
             <TabsContent value="questions" className="mt-5">
-              <QuestionsTab meeting={meeting} />
+              {isAnalyzing && !meeting.open_questions ? (
+                <GeneratingPlaceholder label="open questions" />
+              ) : (
+                <QuestionsTab meeting={meeting} />
+              )}
             </TabsContent>
 
             <TabsContent value="email" className="mt-5">
-              {meeting.follow_up_email ? (
+              {isAnalyzing && !meeting.follow_up_email ? (
+                <GeneratingPlaceholder label="follow-up email" />
+              ) : meeting.follow_up_email ? (
                 <FollowUpEmailPanel
                   meeting={meeting}
                   onUpdate={(patch) =>
