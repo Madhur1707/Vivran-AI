@@ -4,7 +4,14 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { normalizePhone } from "@/lib/phone";
+import { compressAudio } from "@/lib/audio-compress";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Upload,
   FileAudio,
@@ -58,7 +65,7 @@ export default function UploadPage() {
   function validateFile(f: File): boolean {
     if (!ACCEPTED_TYPES.includes(f.type)) {
       toast.error(
-        "Unsupported file format. Use MP3, MP4, WAV, M4A, OGG, or WEBM."
+        "Unsupported file format. Use MP3, MP4, WAV, M4A, OGG, or WEBM.",
       );
       return false;
     }
@@ -81,7 +88,7 @@ export default function UploadPage() {
         }
       }
     },
-    [title]
+    [title],
   );
 
   function onFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -136,13 +143,13 @@ export default function UploadPage() {
     // Include a pending draft name the user typed but didn't click "Add" for
     const finalAttendees = draftName.trim()
       ? [
-        ...attendees,
-        {
-          name: draftName.trim(),
-          email: draftEmail.trim(),
-          phone: draftPhone.trim() ? normalizePhone(draftPhone) : "",
-        },
-      ]
+          ...attendees,
+          {
+            name: draftName.trim(),
+            email: draftEmail.trim(),
+            phone: draftPhone.trim() ? normalizePhone(draftPhone) : "",
+          },
+        ]
       : attendees;
 
     if (finalAttendees.length === 0) {
@@ -163,9 +170,23 @@ export default function UploadPage() {
     }
 
     setUploading(true);
-    setProgress(10);
+    setProgress(2);
 
     try {
+      let uploadFile = file;
+      try {
+        uploadFile = await compressAudio(file, (ratio) => {
+          setProgress(2 + Math.round(ratio * 28));
+        });
+      } catch (err) {
+        console.error(
+          "Client-side compression failed, uploading original file:",
+          err,
+        );
+      }
+
+      setProgress(30);
+
       const supabase = createClient();
       const {
         data: { user },
@@ -188,20 +209,18 @@ export default function UploadPage() {
         return;
       }
 
-      setProgress(20);
-
       const timestamp = Date.now();
-      const filePath = `meetings/${user.id}/${timestamp}-${file.name}`;
+      const filePath = `meetings/${user.id}/${timestamp}-${uploadFile.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from("meeting-audio")
-        .upload(filePath, file);
+        .upload(filePath, uploadFile);
 
       if (uploadError) {
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      setProgress(60);
+      setProgress(70);
 
       const { data: urlData } = supabase.storage
         .from("meeting-audio")
@@ -229,8 +248,7 @@ export default function UploadPage() {
 
       setProgress(80);
 
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
       try {
         await fetch(`${apiUrl}/api/process`, {
           method: "POST",
@@ -259,13 +277,13 @@ export default function UploadPage() {
 
   const filledAttendees = draftName.trim()
     ? [
-      ...attendees,
-      {
-        name: draftName.trim(),
-        email: draftEmail.trim(),
-        phone: draftPhone.trim() ? normalizePhone(draftPhone) : "",
-      },
-    ]
+        ...attendees,
+        {
+          name: draftName.trim(),
+          email: draftEmail.trim(),
+          phone: draftPhone.trim() ? normalizePhone(draftPhone) : "",
+        },
+      ]
     : attendees;
   const isReady = !!file && !!title.trim() && filledAttendees.length > 0;
   const languageLabel =
@@ -286,7 +304,7 @@ export default function UploadPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* TOP — Full-width file upload */}
         {file ? (
-          <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <Card className="flex-row items-center gap-3 px-4 py-3 border border-border ring-0">
             <div
               className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
               style={{ background: "rgba(52,211,153,0.1)" }}
@@ -301,14 +319,16 @@ export default function UploadPage() {
                 {formatFileSize(file.size)}
               </p>
             </div>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setFile(null)}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 cursor-pointer"
+              className="text-[11px] shrink-0 cursor-pointer"
             >
               Change file
-            </button>
-          </div>
+            </Button>
+          </Card>
         ) : (
           <label
             className="block cursor-pointer"
@@ -320,21 +340,14 @@ export default function UploadPage() {
             onDrop={onDrop}
           >
             <div
-              className="flex flex-col items-center justify-center text-center gap-2 rounded-xl border-2 border-dashed px-5 py-6 transition-all"
-              style={{
-                borderColor: dragActive
-                  ? "rgba(255,255,255,0.5)"
-                  : "rgba(255,255,255,0.15)",
-                background: dragActive
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(255,255,255,0.02)",
-              }}
+              className={`flex flex-col items-center justify-center text-center gap-2 rounded-xl border-2 border-dashed px-5 py-6 transition-all ${
+                dragActive
+                  ? "border-foreground/50 bg-foreground/6"
+                  : "border-foreground/15 bg-foreground/2"
+              }`}
             >
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: "rgba(255,255,255,0.1)" }}
-              >
-                <Upload className="h-4.5 w-4.5" style={{ color: "#d4d4d8" }} />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-foreground/10">
+                <Upload className="h-4.5 w-4.5 text-foreground/70" />
               </div>
               <p className="text-[13px] font-semibold" style={BG}>
                 {dragActive
@@ -343,17 +356,14 @@ export default function UploadPage() {
               </p>
               <div className="flex flex-wrap items-center justify-center gap-1">
                 {["MP3", "MP4", "WAV", "M4A", "OGG", "WEBM"].map((fmt) => (
-                  <span
+                  <Badge
                     key={fmt}
-                    className="px-1.5 py-0.5 rounded text-[8px] font-medium"
-                    style={{
-                      background: "rgba(255,255,255,0.08)",
-                      color: "#d4d4d8",
-                      ...MONO,
-                    }}
+                    variant="secondary"
+                    className="h-auto px-1.5 py-0.5 text-[8px] font-medium rounded"
+                    style={MONO}
                   >
                     {fmt}
-                  </span>
+                  </Badge>
                 ))}
                 <span
                   className="text-[9px] text-muted-foreground/40 ml-1"
@@ -375,25 +385,28 @@ export default function UploadPage() {
         {/* BELOW — Two columns: form (left) + live preview (right) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* LEFT — Form */}
-          <div className="rounded-xl border border-border bg-card flex flex-col">
+          <Card className="gap-0 py-0 border border-border ring-0">
             {/* Title */}
-            <div className="px-4 py-3 border-b border-border">
-              <div className="flex items-center gap-2 mb-1.5">
+            <CardContent className="px-4 py-3 border-b border-border">
+              <Label
+                htmlFor="meeting-title"
+                className="mb-1.5 text-[11px] font-semibold"
+                style={BG}
+              >
                 <Mic className="h-3 w-3 shrink-0 text-muted-foreground" />
-                <p className="text-[11px] font-semibold" style={BG}>
-                  Meeting title
-                </p>
-              </div>
-              <input
+                Meeting title
+              </Label>
+              <Input
+                id="meeting-title"
                 placeholder="e.g. Sprint Planning — June 27"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full bg-transparent rounded-lg border border-border px-3 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 focus:border-[rgba(255,255,255,0.4)] transition-colors"
+                className="text-[12px]"
               />
-            </div>
+            </CardContent>
 
             {/* Language */}
-            <div className="px-4 py-3 border-b border-border">
+            <CardContent className="px-4 py-3 border-b border-border">
               <div className="flex items-center gap-2 mb-1.5">
                 <Globe className="h-3 w-3 shrink-0 text-muted-foreground" />
                 <p className="text-[11px] font-semibold" style={BG}>
@@ -402,28 +415,22 @@ export default function UploadPage() {
               </div>
               <div className="flex gap-1.5">
                 {LANGUAGES.map((lang) => (
-                  <button
+                  <Button
                     key={lang.code}
                     type="button"
+                    size="sm"
+                    variant={language === lang.code ? "secondary" : "outline"}
                     onClick={() => setLanguage(lang.code)}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer"
-                    style={{
-                      background:
-                        language === lang.code
-                          ? "rgba(255,255,255,0.15)"
-                          : "rgba(255,255,255,0.04)",
-                      color: language === lang.code ? "#e4e4e7" : "#9999a8",
-                      border: `1px solid ${language === lang.code ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.08)"}`,
-                    }}
+                    className="text-[11px] font-medium rounded-md cursor-pointer"
                   >
                     {lang.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
-            </div>
+            </CardContent>
 
             {/* Attendees */}
-            <div className="px-4 py-3 flex-1">
+            <CardContent className="px-4 py-3 flex-1">
               <div className="flex items-center gap-2 mb-1.5">
                 <Users className="h-3 w-3 shrink-0 text-muted-foreground" />
                 <p className="text-[11px] font-semibold" style={BG}>
@@ -433,47 +440,45 @@ export default function UploadPage() {
 
               {/* Quick-add row */}
               <div className="flex gap-1.5 mb-1.5">
-                <input
+                <Input
                   placeholder="Attendee name"
                   value={draftName}
                   onChange={(e) => setDraftName(e.target.value)}
                   onKeyDown={handleDraftKeyDown}
-                  className="flex-1 bg-transparent rounded-lg border border-border px-2.5 py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 focus:border-[rgba(255,255,255,0.4)] transition-colors min-w-0"
+                  className="flex-1 text-[12px] min-w-0"
                 />
-                <button
+                <Button
                   type="button"
+                  size="icon"
+                  variant="secondary"
                   onClick={addAttendee}
                   disabled={!draftName.trim()}
-                  className="w-8 rounded-lg flex items-center justify-center transition-all shrink-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
-                  style={{
-                    background: "rgba(255,255,255,0.1)",
-                    color: "#e4e4e7",
-                  }}
+                  className="shrink-0 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
               <div className="flex gap-1.5 mb-2.5">
-                <div className="flex-1 flex items-center gap-1 rounded-lg border border-border px-2 focus-within:border-[rgba(255,255,255,0.4)] transition-colors min-w-0">
+                <div className="flex-1 flex items-center gap-1 rounded-lg border border-border px-2 focus-within:border-ring transition-colors min-w-0">
                   <Mail className="h-3 w-3 shrink-0 text-muted-foreground/40" />
-                  <input
+                  <Input
                     type="email"
                     placeholder="Email (optional)"
                     value={draftEmail}
                     onChange={(e) => setDraftEmail(e.target.value)}
                     onKeyDown={handleDraftKeyDown}
-                    className="flex-1 bg-transparent py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 min-w-0"
+                    className="flex-1 min-w-0 border-0 rounded-none bg-transparent dark:bg-transparent shadow-none h-auto py-1.5 text-[12px] focus-visible:ring-0"
                   />
                 </div>
-                <div className="flex-1 flex items-center gap-1 rounded-lg border border-border px-2 focus-within:border-[rgba(255,255,255,0.4)] transition-colors min-w-0">
+                <div className="flex-1 flex items-center gap-1 rounded-lg border border-border px-2 focus-within:border-ring transition-colors min-w-0">
                   <Phone className="h-3 w-3 shrink-0 text-muted-foreground/40" />
-                  <input
+                  <Input
                     type="tel"
                     placeholder="WhatsApp number (optional)"
                     value={draftPhone}
                     onChange={(e) => setDraftPhone(e.target.value)}
                     onKeyDown={handleDraftKeyDown}
-                    className="flex-1 bg-transparent py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40 min-w-0"
+                    className="flex-1 min-w-0 border-0 rounded-none bg-transparent dark:bg-transparent shadow-none h-auto py-1.5 text-[12px] focus-visible:ring-0"
                   />
                 </div>
               </div>
@@ -482,14 +487,10 @@ export default function UploadPage() {
               {attendees.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 max-h-35 overflow-y-auto pr-1">
                   {attendees.map((attendee, i) => (
-                    <span
+                    <Badge
                       key={i}
-                      className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11px]"
-                      style={{
-                        background: "rgba(255,255,255,0.06)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        color: "#e4e4e7",
-                      }}
+                      variant="outline"
+                      className="h-auto gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11px] text-foreground"
                     >
                       {attendee.name}
                       {attendee.email && (
@@ -498,66 +499,64 @@ export default function UploadPage() {
                       {attendee.phone && (
                         <Phone className="h-2.5 w-2.5 text-muted-foreground/50" />
                       )}
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-xs"
                         onClick={() => removeAttendee(i)}
-                        className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
+                        className="size-4 rounded-full hover:bg-foreground/10 cursor-pointer"
                       >
                         <X className="h-2.5 w-2.5 text-muted-foreground" />
-                      </button>
-                    </span>
+                      </Button>
+                    </Badge>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* RIGHT — Meeting summary */}
-          <div className="rounded-xl border border-border bg-card flex flex-col overflow-hidden">
-            <div
-              className="px-4 py-3 border-b border-border flex items-center justify-between"
-              style={{ background: "rgba(255,255,255,0.02)" }}
-            >
+          <Card className="gap-0 py-0 border border-border ring-0 overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-border bg-foreground/2">
               <p
-                className="text-[10px] font-bold uppercase tracking-[0.15em]"
-                style={{ color: "#9999a8", ...MONO }}
+                className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground"
+                style={MONO}
               >
                 Meeting summary
               </p>
-              <div
-                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full"
+              <Badge
+                variant="secondary"
+                className="h-auto gap-1.5 px-2 py-0.5 rounded-full"
                 style={{
-                  background: isReady
-                    ? "rgba(52,211,153,0.12)"
-                    : "rgba(255,255,255,0.06)",
+                  background: isReady ? "rgba(52,211,153,0.12)" : undefined,
                 }}
               >
                 <div
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: isReady ? "#34d399" : "#71717a" }}
+                  className={`w-1.5 h-1.5 rounded-full ${isReady ? "" : "bg-muted-foreground"}`}
+                  style={{ background: isReady ? "#34d399" : undefined }}
                 />
                 <span
-                  className="text-[10px] font-medium"
-                  style={{
-                    color: isReady ? "#34d399" : "#9999a8",
-                    ...MONO,
-                  }}
+                  className={`text-[10px] font-medium ${isReady ? "" : "text-muted-foreground"}`}
+                  style={{ color: isReady ? "#34d399" : undefined, ...MONO }}
                 >
                   {isReady ? "Ready" : "Incomplete"}
                 </span>
-              </div>
-            </div>
+              </Badge>
+            </CardHeader>
 
-            <div className="px-4 py-3 border-b border-border">
+            <CardContent className="px-4 py-3 border-b border-border">
               <p
-                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-1"
-                style={{ color: "#71717a", ...MONO }}
+                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-1 text-muted-foreground"
+                style={MONO}
               >
                 Recording
               </p>
               {file ? (
                 <div className="flex items-center gap-2">
-                  <FileAudio className="h-3.5 w-3.5 shrink-0" style={{ color: "#34d399" }} />
+                  <FileAudio
+                    className="h-3.5 w-3.5 shrink-0"
+                    style={{ color: "#34d399" }}
+                  />
                   <span className="text-[13px] font-medium truncate">
                     {file.name}
                   </span>
@@ -573,12 +572,12 @@ export default function UploadPage() {
                   Not selected yet
                 </span>
               )}
-            </div>
+            </CardContent>
 
-            <div className="px-4 py-3 border-b border-border">
+            <CardContent className="px-4 py-3 border-b border-border">
               <p
-                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-1"
-                style={{ color: "#71717a", ...MONO }}
+                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-1 text-muted-foreground"
+                style={MONO}
               >
                 Title
               </p>
@@ -589,22 +588,22 @@ export default function UploadPage() {
                   No title yet
                 </span>
               )}
-            </div>
+            </CardContent>
 
-            <div className="px-4 py-3 border-b border-border">
+            <CardContent className="px-4 py-3 border-b border-border">
               <p
-                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-1"
-                style={{ color: "#71717a", ...MONO }}
+                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-1 text-muted-foreground"
+                style={MONO}
               >
                 Language
               </p>
               <span className="text-[13px] font-medium">{languageLabel}</span>
-            </div>
+            </CardContent>
 
-            <div className="px-4 py-3 flex-1">
+            <CardContent className="px-4 py-3 flex-1">
               <p
-                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-2"
-                style={{ color: "#71717a", ...MONO }}
+                className="text-[9px] font-bold uppercase tracking-[0.15em] mb-2 text-muted-foreground"
+                style={MONO}
               >
                 Attendees ({filledAttendees.length})
               </p>
@@ -616,13 +615,7 @@ export default function UploadPage() {
                 <div className="space-y-1.5 max-h-37.5 overflow-y-auto pr-1">
                   {filledAttendees.map((a, i) => (
                     <div key={i} className="flex items-center gap-2.5">
-                      <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
-                        style={{
-                          background: "rgba(255,255,255,0.1)",
-                          color: "#e4e4e7",
-                        }}
-                      >
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 bg-foreground/10 text-foreground">
                         {a.name
                           .split(" ")
                           .map((n) => n[0])
@@ -659,61 +652,52 @@ export default function UploadPage() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Progress bar */}
         {uploading && (
-          <div
-            className="rounded-xl border p-3.5"
-            style={{
-              borderColor: "rgba(255,255,255,0.2)",
-              background: "rgba(255,255,255,0.04)",
-            }}
-          >
-            <div className="flex items-center justify-between mb-2">
+          <Card className="p-3.5 gap-2 border border-foreground/20 ring-0 bg-foreground/4">
+            <div className="flex items-center justify-between">
               <p className="text-[12px] font-semibold" style={BG}>
-                {progress < 60
-                  ? "Uploading audio..."
-                  : progress < 100
-                    ? "Saving meeting..."
-                    : "Done!"}
+                {progress < 30
+                  ? "Compressing audio..."
+                  : progress < 70
+                    ? "Uploading audio..."
+                    : progress < 100
+                      ? "Saving meeting..."
+                      : "Done!"}
               </p>
               <span
-                className="text-[10px] font-medium"
-                style={{ color: "#d4d4d8", ...MONO }}
+                className="text-[10px] font-medium text-foreground/80"
+                style={MONO}
               >
                 {progress}%
               </span>
             </div>
-            <div
-              className="h-1.5 rounded-full overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.1)" }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${progress}%`,
-                  background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)",
-                }}
-              />
-            </div>
-          </div>
+            <Progress
+              value={progress}
+              className="**:data-[slot=progress-track]:h-1.5 **:data-[slot=progress-indicator]:duration-500"
+            />
+          </Card>
         )}
 
         {/* Submit */}
-        <button
+        <Button
           type="submit"
+          variant={isReady ? undefined : "secondary"}
           disabled={uploading || !file}
-          className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          style={{
-            background: isReady
-              ? "linear-gradient(135deg, #e4e4e7, #a1a1aa)"
-              : "rgba(255,255,255,0.15)",
-            color: isReady ? "#0a0a0a" : "#d4d4d8",
-            boxShadow: isReady ? "0 0 20px rgba(255,255,255,0.25)" : "none",
-          }}
+          className="w-full rounded-xl py-2.5 h-auto text-[13px] font-semibold cursor-pointer"
+          style={
+            isReady
+              ? {
+                  background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)",
+                  color: "#0a0a0a",
+                  boxShadow: "0 0 20px rgba(255,255,255,0.25)",
+                }
+              : undefined
+          }
         >
           {uploading ? (
             <>
@@ -726,7 +710,7 @@ export default function UploadPage() {
               <ArrowRight className="h-3.5 w-3.5" />
             </>
           )}
-        </button>
+        </Button>
       </form>
     </div>
   );

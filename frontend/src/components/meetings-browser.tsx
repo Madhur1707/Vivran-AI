@@ -8,8 +8,18 @@ import {
   ChevronRight,
   Search,
   ArrowUpDown,
+  Filter,
   X,
 } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 const BG = { fontFamily: "'Bricolage Grotesque', sans-serif" };
 const MONO = { fontFamily: "'JetBrains Mono', monospace" };
@@ -36,9 +46,9 @@ const statusConfig: Record<
   },
   processing: {
     label: "Processing",
-    dot: "#d4d4d8",
-    bg: "rgba(255,255,255,0.1)",
-    color: "#d4d4d8",
+    dot: "#60a5fa",
+    bg: "rgba(96,165,250,0.1)",
+    color: "#60a5fa",
   },
   completed: {
     label: "Completed",
@@ -55,15 +65,23 @@ const statusConfig: Record<
 };
 
 const AVATAR_COLORS = [
-  "#e4e4e7",
-  "#a1a1aa",
+  "#818cf8",
   "#f472b6",
   "#34d399",
-  "#d4d4d8",
+  "#a78bfa",
   "#fbbf24",
   "#f97316",
   "#06b6d4",
+  "#f87171",
 ];
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "completed", label: "Completed" },
+  { value: "processing", label: "Processing" },
+  { value: "queued", label: "Queued" },
+  { value: "failed", label: "Failed" },
+] as const;
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
@@ -112,7 +130,6 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sort, setSort] = useState<SortValue>("newest");
-  const [sortOpen, setSortOpen] = useState(false);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: meetings.length };
@@ -175,108 +192,120 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
   const sortLabel =
     SORT_OPTIONS.find((s) => s.value === sort)?.label ?? "Newest first";
 
+  const visibleStatusOptions = useMemo(
+    () =>
+      STATUS_OPTIONS.filter(
+        (opt) => opt.value === "all" || (statusCounts[opt.value] ?? 0) > 0
+      ),
+    [statusCounts]
+  );
+
+  const activeStatusOption =
+    visibleStatusOptions.find((opt) => opt.value === statusFilter) ??
+    STATUS_OPTIONS[0];
+  const activeStatusLabel = `${activeStatusOption.label} (${statusCounts[activeStatusOption.value] ?? 0
+    })`;
+
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-2.5">
-        {/* Search */}
-        <div
-          className="flex-1 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2"
-        >
-          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-          <input
-            placeholder="Search by title or attendee..."
+      {/* Toolbar — filters, search (fills remaining space) and sort in one row */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+        {/* Status filter chips — desktop only */}
+        <div className="hidden lg:flex flex-wrap items-center gap-1.5 shrink-0">
+          {visibleStatusOptions.map((opt) => {
+            const count = statusCounts[opt.value] ?? 0;
+            const isActive = statusFilter === opt.value;
+            return (
+              <Button
+                key={opt.value}
+                type="button"
+                variant={isActive ? "secondary" : "outline"}
+                onClick={() => setStatusFilter(opt.value)}
+                className="text-[11px] font-medium cursor-pointer"
+              >
+                {opt.label} ({count})
+              </Button>
+            );
+          })}
+        </div>
+
+        {/* Search — fills remaining space */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 shrink-0 text-muted-foreground/50 pointer-events-none" />
+          <Input
+            placeholder="Search meetings..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/40 min-w-0"
+            className="pl-8 pr-7 text-[12px]"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
 
-        {/* Sort */}
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setSortOpen(!sortOpen)}
-            className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-[12px] font-medium cursor-pointer hover:border-[rgba(255,255,255,0.25)] transition-colors w-full sm:w-auto"
-          >
-            <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-            <span className="whitespace-nowrap">{sortLabel}</span>
-          </button>
-          {sortOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setSortOpen(false)}
-              />
-              <div
-                className="absolute right-0 mt-1.5 w-44 rounded-xl border border-border bg-card overflow-hidden z-20 shadow-lg"
-              >
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      setSort(opt.value);
-                      setSortOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-[12px] cursor-pointer transition-colors hover:bg-white/5"
-                    style={{
-                      background:
-                        sort === opt.value
-                          ? "rgba(255,255,255,0.06)"
-                          : undefined,
-                      color: sort === opt.value ? "#e4e4e7" : undefined,
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Status filter chips */}
-      <div className="flex flex-wrap gap-1.5">
-        {[
-          { value: "all", label: "All" },
-          { value: "completed", label: "Completed" },
-          { value: "processing", label: "Processing" },
-          { value: "queued", label: "Queued" },
-          { value: "failed", label: "Failed" },
-        ].map((opt) => {
-          const count = statusCounts[opt.value] ?? 0;
-          if (opt.value !== "all" && count === 0) return null;
-          const isActive = statusFilter === opt.value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setStatusFilter(opt.value)}
-              className="px-3 py-1.5 rounded-full text-[11px] font-medium transition-all cursor-pointer"
-              style={{
-                background: isActive
-                  ? "rgba(255,255,255,0.15)"
-                  : "rgba(255,255,255,0.04)",
-                color: isActive ? "#e4e4e7" : "#9999a8",
-                border: `1px solid ${isActive ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.08)"}`,
-                ...MONO,
-              }}
+        {/* Filter (mobile) + Sort — share a row on mobile, unwrap into the toolbar row on desktop */}
+        <div className="flex items-center gap-2 lg:contents">
+          {/* Status filter dropdown — mobile only */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "cursor-pointer text-[11px] font-medium gap-1.5 flex-1 lg:hidden justify-center"
+              )}
             >
-              {opt.label} ({count})
-            </button>
-          );
-        })}
+              <Filter className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+              <span className="truncate">{activeStatusLabel}</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-auto">
+              {visibleStatusOptions.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  onClick={() => setStatusFilter(opt.value)}
+                  className={cn(
+                    "cursor-pointer text-[12px]",
+                    statusFilter === opt.value &&
+                    "bg-accent text-accent-foreground"
+                  )}
+                >
+                  {opt.label} ({statusCounts[opt.value] ?? 0})
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Sort */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "cursor-pointer text-[11px] font-medium gap-1.5 flex-1 lg:w-30 lg:flex-none justify-center"
+              )}
+            >
+              <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+              <span className="truncate">{sortLabel}</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-auto">
+              {SORT_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  onClick={() => setSort(opt.value)}
+                  className={cn(
+                    "cursor-pointer text-[12px]",
+                    sort === opt.value && "bg-accent text-accent-foreground"
+                  )}
+                >
+                  {opt.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Results count */}
@@ -289,30 +318,24 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
 
       {/* Grid / empty state */}
       {filtered.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center py-16 rounded-xl border"
-          style={{
-            borderColor: "rgba(255,255,255,0.1)",
-            background: "rgba(255,255,255,0.02)",
-          }}
-        >
-          <Search className="h-6 w-6 mb-3 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">
+        <div className="flex flex-col items-center justify-center py-12 rounded-xl border border-foreground/10 bg-foreground/2">
+          <Search className="h-5 w-5 mb-2.5 text-muted-foreground/30" />
+          <p className="text-xs text-muted-foreground">
             No meetings match your search.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map((meeting) => {
             const st = statusConfig[meeting.status] ?? statusConfig.queued;
             const attendeeNames = meeting.attendees ?? [];
             return (
               <Link key={meeting.id} href={`/dashboard/meetings/${meeting.id}`}>
-                <div className="group rounded-xl border border-border bg-card p-5 h-full flex flex-col transition-all duration-200 hover:border-[rgba(255,255,255,0.3)] hover:shadow-lg shadow-sm cursor-pointer">
+                <div className="group rounded-xl border border-border bg-card p-4 h-full flex flex-col transition-all duration-200 hover:border-foreground/30 hover:shadow-lg shadow-sm cursor-pointer">
                   {/* Top: Status + date */}
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-3">
                     <div
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                      className="flex items-center gap-1.5 px-2 py-0.5 rounded-full"
                       style={{ background: st.bg }}
                     >
                       <div
@@ -327,7 +350,7 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
                       </span>
                     </div>
                     <span
-                      className="text-[11px] text-muted-foreground"
+                      className="text-[10px] text-muted-foreground"
                       style={MONO}
                     >
                       {formatDate(meeting.created_at)}
@@ -336,14 +359,14 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
 
                   {/* Title */}
                   <h3
-                    className="text-[15px] font-semibold text-foreground mb-1 line-clamp-2 leading-snug"
+                    className="text-[14px] font-semibold text-foreground mb-1 line-clamp-2 leading-snug"
                     style={BG}
                   >
                     {meeting.title}
                   </h3>
 
                   {/* Meta row */}
-                  <div className="flex items-center gap-4 mt-2 mb-5 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-3 mt-1.5 mb-3 text-[11px] text-muted-foreground">
                     {meeting.duration_seconds != null &&
                       meeting.duration_seconds > 0 && (
                         <span className="flex items-center gap-1.5">
@@ -363,7 +386,7 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
                   <div className="flex-1" />
 
                   {/* Bottom: Avatars + arrow */}
-                  <div className="flex items-center justify-between pt-4 border-t border-border">
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
                     {attendeeNames.length > 0 ? (
                       <div className="flex items-center gap-2">
                         <div className="flex -space-x-1.5">
@@ -380,13 +403,7 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
                             </div>
                           ))}
                           {attendeeNames.length > 4 && (
-                            <div
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-medium ring-2 ring-background"
-                              style={{
-                                background: "rgba(161,161,170,0.1)",
-                                color: "rgba(161,161,170,0.5)",
-                              }}
-                            >
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-medium ring-2 ring-background bg-foreground/10 text-muted-foreground">
                               +{attendeeNames.length - 4}
                             </div>
                           )}
@@ -402,7 +419,7 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
                         No attendees
                       </span>
                     )}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-[#d4d4d8] transition-colors shrink-0" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-foreground/70 transition-colors shrink-0" />
                   </div>
                 </div>
               </Link>
