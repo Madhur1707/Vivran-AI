@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Vivran.ai Meet Recorder",
+  "description": "Record Google Meet calls and send them straight to your Vivran.ai workspace for transcription, summaries and action items.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["tabCapture", "offscreen", "storage", "tabs", "sidePanel"],
+  "host_permissions": [
+    "https://*.supabase.co/*",
+    "https://vivran-ai.onrender.com/*",
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Vivran.ai Meet Recorder"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

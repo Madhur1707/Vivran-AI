@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Vivran.ai</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="brand">
+        <img src="icons/icon32.png" alt="" width="20" height="20" />
+        <span>Vivran.ai</span>
+      </div>
+      <button id="signOutBtn" class="link-btn hidden">Sign out</button>
+    </header>
+
+    <div id="errorBanner" class="banner hidden"></div>
+
+    <!-- Sign in -->
+    <section id="viewLogin" class="view hidden">
+      <p class="lead">Sign in with your Vivran.ai account to record meetings.</p>
+      <form id="loginForm">
+        <label>Email
+          <input type="email" id="loginEmail" placeholder="you@company.com" required />
+        </label>
+        <label>Password
+          <input type="password" id="loginPassword" placeholder="••••••••" required />
+        </label>
+        <button type="submit" class="primary" id="loginBtn">Sign in</button>
+      </form>
+      <p class="hint">No account? Create one on the <a id="portalLink" href="https://vivran-ai.vercel.app/" target="_blank">Vivran.ai portal</a>.</p>
+    </section>
+
+    <!-- Not on a Meet tab -->
+    <section id="viewNoMeet" class="view hidden">
+      <div class="empty">
+        <div class="empty-icon">🎥</div>
+        <p>Open a <strong>Google Meet</strong> call, then click this icon to start recording.</p>
+      </div>
+    </section>
+
+    <!-- Ready to record -->
+    <section id="viewIdle" class="view hidden">
+      <div class="meeting-card">
+        <p class="meeting-title" id="idleTitle">Google Meet</p>
+        <p class="meeting-sub" id="idleParticipants">Detecting participants…</p>
+      </div>
+      <div id="micStatus" class="mic-row"></div>
+      <button id="startBtn" class="primary record">
+        <span class="rec-dot"></span> Start recording
+      </button>
+      <p class="hint">Captures meeting audio + your microphone. Stops automatically when you leave the call.</p>
+    </section>
+
+    <!-- Recording -->
+    <section id="viewRecording" class="view hidden">
+      <div class="rec-live">
+        <span class="rec-dot pulsing"></span>
+        <span id="recTimer" class="timer">00:00</span>
+      </div>
+      <div class="meeting-card">
+        <p class="meeting-title" id="recTitle">Google Meet</p>
+        <p class="meeting-sub" id="recParticipants"></p>
+      </div>
+      <button id="stopBtn" class="primary stop">Stop recording</button>
+    </section>
+
+    <!-- Review & upload -->
+    <section id="viewReview" class="view hidden">
+      <p class="section-label">Ready to upload <span id="reviewSize" class="mono"></span></p>
+      <label>Meeting title
+        <input type="text" id="reviewTitle" placeholder="e.g. Sprint Planning" />
+      </label>
+      <label>Attendees</label>
+      <div id="attendeeChips" class="chips"></div>
+      <div class="add-row">
+        <input type="text" id="attendeeInput" placeholder="Add attendee name" />
+        <button id="attendeeAdd" type="button">+</button>
+      </div>
+      <label>Language</label>
+      <div class="lang-row" id="langRow">
+        <button data-lang="en" class="lang active">English</button>
+        <button data-lang="hi" class="lang">Hindi</button>
+        <button data-lang="multi" class="lang">Auto-detect</button>
+      </div>
+      <button id="uploadBtn" class="primary">Upload to Vivran.ai</button>
+      <button id="discardBtn" class="link-btn danger">Discard recording</button>
+    </section>
+
+    <!-- Uploading -->
+    <section id="viewUploading" class="view hidden">
+      <p class="section-label">Uploading…</p>
+      <div class="progress"><div id="progressBar" class="progress-bar"></div></div>
+      <p class="hint" id="progressPct">0%</p>
+    </section>
+
+    <!-- Done -->
+    <section id="viewDone" class="view hidden">
+      <div class="empty">
+        <div class="empty-icon">✅</div>
+        <p><strong id="doneTitle"></strong> uploaded. Processing has started.</p>
+      </div>
+      <a id="viewMeetingLink" href="#" target="_blank" class="primary center-link">View in Vivran.ai</a>
+      <button id="doneBtn" class="link-btn">Done</button>
+    </section>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
