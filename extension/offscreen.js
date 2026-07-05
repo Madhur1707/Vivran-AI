@@ -25,23 +25,52 @@ function cleanupStreams() {
   audioCtx = null;
 }
 
-async function start(streamId) {
+async function start(streamId, source = "tab") {
   if (recorder && recorder.state !== "inactive") {
     throw new Error("Recorder already running.");
   }
   recordedBlob = null;
   chunks = [];
 
-  // Tab audio via the stream ID minted by the service worker.
-  tabStream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      mandatory: {
-        chromeMediaSource: "tab",
-        chromeMediaSourceId: streamId,
+  if (source === "desktop") {
+    // Stream ID from desktopCapture.chooseDesktopMedia (tab picker fallback).
+    // Desktop-source getUserMedia refuses audio-only requests, so ask for
+    // video too and drop it; audio is only present when the user ticked
+    // "Also share tab audio" in the picker.
+    try {
+      tabStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: streamId },
+        },
+        video: {
+          mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: streamId },
+        },
+      });
+    } catch (err) {
+      throw new Error(
+        `Could not capture the picked tab (${err?.message ?? err}). In the picker, choose the Meet tab and tick "Also share tab audio".`,
+      );
+    }
+    if (tabStream.getAudioTracks().length === 0) {
+      cleanupStreams();
+      throw new Error('No tab audio captured — tick "Also share tab audio" in the picker and try again.');
+    }
+    tabStream.getVideoTracks().forEach((t) => {
+      t.stop();
+      tabStream.removeTrack(t);
+    });
+  } else {
+    // Tab audio via the stream ID minted by the service worker.
+    tabStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        mandatory: {
+          chromeMediaSource: "tab",
+          chromeMediaSourceId: streamId,
+        },
       },
-    },
-    video: false,
-  });
+      video: false,
+    });
+  }
 
   // Microphone is best-effort: offscreen documents can't show a permission
   // prompt, so this only works if permission.html granted it earlier.
@@ -59,9 +88,12 @@ async function start(streamId) {
   const mixed = audioCtx.createMediaStreamDestination();
   const tabSource = audioCtx.createMediaStreamSource(tabStream);
   tabSource.connect(mixed);
-  // Capturing a tab mutes it for the user — route the audio back out so the
-  // user can still hear the meeting.
-  tabSource.connect(audioCtx.destination);
+  // tabCapture mutes the tab for the user — route the audio back out so the
+  // user can still hear the meeting. Desktop-picker tab shares keep playing
+  // locally, so looping those back would double the audio.
+  if (source !== "desktop") {
+    tabSource.connect(audioCtx.destination);
+  }
   if (micStream) {
     audioCtx.createMediaStreamSource(micStream).connect(mixed);
   }
@@ -157,7 +189,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   switch (message.type) {
     case "START":
-      return respond(start(message.streamId));
+      return respond(start(message.streamId, message.source));
+    case "PAUSE":
+      return respond(
+        (async () => {
+          if (recorder?.state === "recording") recorder.pause();
+        })(),
+      );
+    case "RESUME":
+      return respond(
+        (async () => {
+          if (recorder?.state === "paused") recorder.resume();
+        })(),
+      );
     case "STOP":
       return respond(stop());
     case "UPLOAD":

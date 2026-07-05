@@ -72,11 +72,11 @@ export function DashboardShell({
         }}
       >
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-          <Link href="/dashboard" className="flex items-center -ml-4">
+          <Link href="/dashboard" className="flex items-center">
             <img
               src="/Vivran.ai.jpg"
               alt="Vivran.ai"
-              className="h-20 rounded"
+              className="h-8"
             />
           </Link>
 

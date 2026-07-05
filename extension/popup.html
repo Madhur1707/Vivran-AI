@@ -49,20 +49,26 @@
       <button id="startBtn" class="primary record">
         <span class="rec-dot"></span> Start recording
       </button>
-      <p class="hint">Captures meeting audio + your microphone. Stops automatically when you leave the call.</p>
+      <button id="pickTabBtn" type="button" class="link-btn hidden">Pick the tab to record instead…</button>
+      <p class="hint">Captures meeting audio + your microphone. Stops automatically when you leave the call. You can close this popup while recording.</p>
     </section>
 
     <!-- Recording -->
     <section id="viewRecording" class="view hidden">
       <div class="rec-live">
-        <span class="rec-dot pulsing"></span>
+        <span id="recDot" class="rec-dot pulsing"></span>
         <span id="recTimer" class="timer">00:00</span>
       </div>
+      <p class="hint center" id="recHint">Recording meeting audio + your mic</p>
       <div class="meeting-card">
         <p class="meeting-title" id="recTitle">Google Meet</p>
         <p class="meeting-sub" id="recParticipants"></p>
       </div>
-      <button id="stopBtn" class="primary stop">Stop recording</button>
+      <div class="btn-row">
+        <button id="pauseBtn" class="secondary">Pause</button>
+        <button id="stopBtn" class="primary stop">Stop &amp; save</button>
+      </div>
+      <p class="hint">You can close this popup — use the floating controls on the Meet page.</p>
     </section>
 
     <!-- Review & upload -->
@@ -89,7 +95,7 @@
 
     <!-- Uploading -->
     <section id="viewUploading" class="view hidden">
-      <p class="section-label">Uploading…</p>
+      <p class="section-label" id="uploadStageLabel">Uploading…</p>
       <div class="progress"><div id="progressBar" class="progress-bar"></div></div>
       <p class="hint" id="progressPct">0%</p>
     </section>
@@ -97,9 +103,10 @@
     <!-- Done -->
     <section id="viewDone" class="view hidden">
       <div class="empty">
-        <div class="empty-icon">✅</div>
-        <p><strong id="doneTitle"></strong> uploaded. Processing has started.</p>
+        <div class="empty-icon" id="doneIcon">✅</div>
+        <p><strong id="doneTitle"></strong> <span id="doneSub">uploaded. Processing has started.</span></p>
       </div>
+      <button id="retryProcessBtn" class="primary hidden">Start processing</button>
       <a id="viewMeetingLink" href="#" target="_blank" class="primary center-link">View in Vivran.ai</a>
       <button id="doneBtn" class="link-btn">Done</button>
     </section>

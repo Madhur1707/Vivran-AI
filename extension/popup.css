@@ -1,14 +1,16 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  width: 100%;
-  min-width: 280px;
-  min-height: 100vh;
+  width: 340px;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
   background: #0c0c11;
   color: #e4e4e7;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 13px;
 }
+.view { flex: 1; }
 
 .hidden { display: none !important; }
 .mono { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 11px; }
@@ -80,9 +82,35 @@ form { display: flex; flex-direction: column; gap: 10px; }
 }
 .primary:hover { filter: brightness(1.1); }
 .primary:disabled { opacity: 0.5; cursor: default; }
-.primary.record { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.primary.record {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 14px;
+  font-size: 14px;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(99, 102, 241, 0.35);
+}
+.primary.record .rec-dot { animation: pulse 1.4s ease-in-out infinite; }
 .primary.stop { background: linear-gradient(135deg, #ef4444, #b91c1c); }
 .center-link { display: block; }
+
+.btn-row { display: flex; gap: 8px; }
+.btn-row .primary { flex: 1.4; }
+.btn-row .secondary { flex: 1; }
+.secondary {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.secondary:hover { background: rgba(255, 255, 255, 0.1); }
+.secondary:disabled { opacity: 0.5; cursor: default; }
 
 .link-btn {
   background: none;
@@ -158,6 +186,8 @@ form { display: flex; flex-direction: column; gap: 10px; }
   font-weight: 700;
   letter-spacing: 0.04em;
 }
+.timer.paused { color: #fbbf24; }
+.hint.center { text-align: center; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {

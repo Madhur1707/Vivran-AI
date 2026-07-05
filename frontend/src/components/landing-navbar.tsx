@@ -12,11 +12,11 @@ export function LandingNavbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <Link href="/" className="flex items-center shrink-0 -ml-4">
+        <Link href="/" className="flex items-center shrink-0">
           <img
             src="/Vivran.ai.jpg"
             alt="Vivran.ai"
-            className="h-20 rounded"
+            className="h-9"
           />
         </Link>
 

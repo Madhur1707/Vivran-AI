@@ -121,16 +121,19 @@ export function publicAudioUrl(path) {
 }
 
 export async function startProcessing(payload) {
-  // Backend may be down; the meeting stays "queued" and can be retried later,
-  // matching how the web upload page treats this call as best-effort.
-  try {
-    await fetch(`${CONFIG.API_URL}/api/process`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    return true;
-  } catch {
-    return false;
+  for (const delayMs of [0, 5_000, 15_000]) {
+    if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    try {
+      const res = await fetch(`${CONFIG.API_URL}/api/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(60_000),
+      });
+      if (res.ok) return true;
+    } catch {
+      // network error or timeout — retry
+    }
   }
+  return false;
 }

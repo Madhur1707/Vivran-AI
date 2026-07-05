@@ -26,8 +26,13 @@ function showError(msg) {
   banner.classList.toggle("hidden", !msg);
 }
 
+// Never let messaging failures reject: a rejected promise in a click handler
+// dies silently ("button does nothing"), so turn it into a visible error.
 function sendBg(message) {
-  return chrome.runtime.sendMessage({ target: "bg", ...message });
+  return chrome.runtime.sendMessage({ target: "bg", ...message }).catch((err) => ({
+    ok: false,
+    error: `Extension error: ${err?.message ?? err}. Try closing and reopening this popup.`,
+  }));
 }
 
 function fmtSize(bytes) {
@@ -49,7 +54,12 @@ function fmtTimer(ms) {
 function isMeetCallTab(tab) {
   if (!tab?.url) return false;
   const url = new URL(tab.url);
-  return url.hostname === "meet.google.com" && url.pathname.length > 1;
+  // Call URLs are /abc-defg-hij codes or /lookup/<name> links — the landing
+  // and /new pages are not calls.
+  return (
+    url.hostname === "meet.google.com" &&
+    /^\/(?:[a-z]{3}-[a-z]{4}-[a-z]{3}|lookup\/.+)$/i.test(url.pathname)
+  );
 }
 
 // ------------------------------------------------------------------ render
@@ -71,31 +81,56 @@ async function render() {
     case "pending_upload":
       renderReview();
       return;
-    case "uploading":
+    case "uploading": {
+      // The audio upload itself is fast; the visible wait is usually the
+      // free-tier backend waking up — say so instead of sitting at "100%".
+      const stageLabels = {
+        audio: "Uploading audio…",
+        finalize: "Saving meeting…",
+        wake: "Starting processing — the server can take a minute to wake up…",
+      };
+      $("uploadStageLabel").textContent = stageLabels[state.uploadStage] ?? "Uploading…";
       $("progressBar").style.width = `${state.uploadProgress ?? 0}%`;
-      $("progressPct").textContent = `${state.uploadProgress ?? 0}%`;
+      $("progressPct").textContent =
+        state.uploadStage === "audio" ? `${state.uploadProgress ?? 0}%` : "";
       showView("viewUploading");
       return;
-    case "done":
+    }
+    case "done": {
+      const started = state.processingStarted !== false;
+      $("doneIcon").textContent = started ? "✅" : "⚠️";
       $("doneTitle").textContent = state.lastMeeting?.title ?? "Meeting";
+      $("doneSub").textContent = started
+        ? "uploaded. Processing has started."
+        : "uploaded, but processing hasn't started — the server didn't respond. Press \"Start processing\" to retry.";
+      $("retryProcessBtn").classList.toggle("hidden", started);
       $("viewMeetingLink").href = `${CONFIG.PORTAL_URL}/dashboard/meetings/${state.lastMeeting?.id}`;
       showView("viewDone");
       return;
+    }
     default:
       renderIdle();
   }
 }
 
 async function renderIdle() {
-  if (!isMeetCallTab(activeTab) || !meet?.inMeeting) {
+  // Gate only on the tab URL. The content script enriches this view (title,
+  // participant names) but must never block recording — after an extension
+  // reload its instance in an already-open Meet tab is orphaned until the
+  // background re-injects it.
+  if (!isMeetCallTab(activeTab)) {
     showView("viewNoMeet");
     return;
   }
-  $("idleTitle").textContent = meet.title || "Google Meet";
-  $("idleParticipants").textContent = meet.attendees?.length
+  const fallbackTitle = (activeTab.title ?? "").replace(/^Meet\s*[–—-]\s*/i, "").trim();
+  $("idleTitle").textContent = meet?.title || fallbackTitle || "Google Meet";
+  $("idleParticipants").textContent = meet?.attendees?.length
     ? `${meet.attendees.length} participant${meet.attendees.length > 1 ? "s" : ""}: ${meet.attendees.join(", ")}`
-    : "No participants detected yet";
+    : "Participants are detected while you record";
   await renderMicStatus();
+  // Tab-picker fallback, only offered after Chrome refused a tabCapture
+  // start (should not happen with the popup flow, but never dead-end).
+  $("pickTabBtn").classList.toggle("hidden", !state?.grantBlocked);
   showView("viewIdle");
 }
 
@@ -124,8 +159,14 @@ function renderRecording() {
   $("recParticipants").textContent = state.attendees?.length
     ? `Detected: ${state.attendees.join(", ")}`
     : "Detecting participants…";
+  const paused = !!state.paused;
+  $("pauseBtn").textContent = paused ? "Resume" : "Pause";
+  $("recHint").textContent = paused ? "Paused" : "Recording meeting audio + your mic";
+  $("recDot").classList.toggle("pulsing", !paused);
+  $("recTimer").classList.toggle("paused", paused);
   const tick = () => {
-    $("recTimer").textContent = fmtTimer(Date.now() - state.startedAt);
+    const end = state.pauseStartedAt ?? Date.now();
+    $("recTimer").textContent = fmtTimer(end - state.startedAt - (state.pausedAccumMs ?? 0));
   };
   clearInterval(timerInterval);
   timerInterval = setInterval(tick, 1000);
@@ -174,6 +215,20 @@ async function refresh() {
     state = res.state;
     meet = res.meet;
   }
+  // Loom-style handoff: on a Meet call tab the whole UI lives on the page.
+  // The popup's real job is done the moment it opened (its click granted tab
+  // capture), so open the in-page panel and get out of the way. Falls back
+  // to the popup views when the content script isn't reachable or the user
+  // still has to sign in.
+  if (isMeetCallTab(activeTab) && (await getStoredSession())) {
+    try {
+      await chrome.tabs.sendMessage(activeTab.id, { target: "content", type: "OPEN_PANEL" });
+      window.close();
+      return;
+    } catch {
+      /* no content script in this tab — keep the popup UI */
+    }
+  }
   await render();
 }
 
@@ -204,22 +259,56 @@ $("signOutBtn").addEventListener("click", async () => {
 });
 
 $("startBtn").addEventListener("click", async () => {
+  if (!activeTab?.id) {
+    showError("No active tab found — close this popup and reopen it on the Meet tab.");
+    return;
+  }
   const btn = $("startBtn");
   btn.disabled = true;
   showError(null);
   const res = await sendBg({ type: "START_RECORDING", tabId: activeTab.id });
   btn.disabled = false;
   if (!res?.ok) {
+    await refresh(); // pick up grantBlocked so the fallback button appears
     showError(res?.error ?? "Could not start recording.");
     return;
   }
   await refresh();
 });
 
+// Fallback that needs no icon-click grant: Chrome's own share dialog mints a
+// desktopCapture stream id for whichever tab the user picks. The user must
+// choose the Meet tab and tick "Also share tab audio".
+$("pickTabBtn").addEventListener("click", () => {
+  showError(null);
+  if (!chrome.desktopCapture) {
+    showError("Missing desktopCapture permission — reload the extension in chrome://extensions (the manifest changed).");
+    return;
+  }
+  chrome.desktopCapture.chooseDesktopMedia(["tab", "audio"], (streamId) => {
+    if (!streamId) return; // picker cancelled
+    sendBg({ type: "START_RECORDING", tabId: activeTab?.id, desktopStreamId: streamId }).then(
+      async (res) => {
+        if (!res?.ok) showError(res?.error ?? "Could not start recording.");
+        await refresh();
+      },
+    );
+  });
+});
+
 $("stopBtn").addEventListener("click", async () => {
   const btn = $("stopBtn");
   btn.disabled = true;
   const res = await sendBg({ type: "STOP_RECORDING" });
+  btn.disabled = false;
+  if (!res?.ok) showError(res?.error);
+  await refresh();
+});
+
+$("pauseBtn").addEventListener("click", async () => {
+  const btn = $("pauseBtn");
+  btn.disabled = true;
+  const res = await sendBg({ type: state?.paused ? "RESUME_RECORDING" : "PAUSE_RECORDING" });
   btn.disabled = false;
   if (!res?.ok) showError(res?.error);
   await refresh();
@@ -285,6 +374,18 @@ $("discardBtn").addEventListener("click", async () => {
 
 $("doneBtn").addEventListener("click", async () => {
   await sendBg({ type: "RESET" });
+  await refresh();
+});
+
+$("retryProcessBtn").addEventListener("click", async () => {
+  const btn = $("retryProcessBtn");
+  btn.disabled = true;
+  btn.textContent = "Contacting server…";
+  showError(null);
+  const res = await sendBg({ type: "RETRY_PROCESS" });
+  btn.disabled = false;
+  btn.textContent = "Start processing";
+  if (!res?.ok) showError(res?.error ?? "Retry failed.");
   await refresh();
 });
 

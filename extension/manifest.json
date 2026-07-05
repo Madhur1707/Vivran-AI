@@ -10,8 +10,9 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["tabCapture", "offscreen", "storage", "tabs", "sidePanel"],
+  "permissions": ["tabCapture", "desktopCapture", "activeTab", "offscreen", "storage", "tabs", "scripting"],
   "host_permissions": [
+    "https://meet.google.com/*",
     "https://*.supabase.co/*",
     "https://vivran-ai.onrender.com/*",
     "http://localhost:8000/*"
@@ -21,10 +22,14 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Vivran.ai Meet Recorder"
+    "default_title": "Vivran.ai Meet Recorder",
+    "default_popup": "popup.html"
   },
-  "side_panel": {
-    "default_path": "popup.html"
+  "commands": {
+    "toggle-recording": {
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "Start / stop recording the current Meet tab"
+    }
   },
   "content_scripts": [
     {
