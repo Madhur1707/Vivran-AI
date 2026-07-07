@@ -11,6 +11,7 @@ import {
   getSpeakerColor,
   getUniqueSpeakers,
 } from "@/lib/meeting-utils";
+import { remapSpeakers } from "@/services/meeting-service";
 
 export function SpeakerMappingUI({
   transcript,
@@ -65,14 +66,7 @@ export function SpeakerMappingUI({
 
     setSaving(true);
     try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/remap-speakers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meeting_id: meetingId, speaker_map: speakerMap }),
-      });
-      if (!res.ok) throw new Error("Failed to save");
+      await remapSpeakers({ meetingId, speakerMap });
 
       const updated = transcript.map((seg) => ({
         ...seg,
@@ -171,10 +165,12 @@ export function SpeakerMappingUI({
                       &ldquo;{currentQuote}&rdquo;
                     </p>
                     {hasMultipleQuotes && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="xs"
                         onClick={() => shuffleQuote(speaker)}
-                        className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all hover:opacity-80"
+                        className="h-auto shrink-0 gap-1 rounded-md px-2 py-1 text-[10px] font-medium hover:opacity-80"
                         style={{
                           background: "rgba(255,255,255,0.1)",
                           color: "#d4d4d8",
@@ -197,7 +193,7 @@ export function SpeakerMappingUI({
                           <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
                         </svg>
                         {(quoteIndex[speaker] ?? 0) + 1}/{quotes.length}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -207,21 +203,20 @@ export function SpeakerMappingUI({
                   const isSelected = mapping[speaker] === attendee;
                   const isUsed = usedAttendees.has(attendee) && !isSelected;
                   return (
-                    <button
+                    <Button
                       key={attendee}
+                      variant="ghost"
+                      size="xs"
                       disabled={isUsed}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-150"
+                      className="h-auto gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium hover:bg-transparent disabled:opacity-30"
                       style={{
                         background: isSelected
                           ? `${color}20`
                           : "rgba(255,255,255,0.05)",
                         color: isSelected ? color : "rgba(161,161,170,0.7)",
                         border: `1px solid ${isSelected ? `${color}40` : "rgba(255,255,255,0.08)"}`,
-                        opacity: isUsed ? 0.3 : 1,
-                        cursor: isUsed ? "not-allowed" : "pointer",
                       }}
                       onClick={() => {
-                        if (isUsed) return;
                         setMapping((prev) => ({
                           ...prev,
                           [speaker]: isSelected ? "" : attendee,
@@ -230,7 +225,7 @@ export function SpeakerMappingUI({
                     >
                       {isSelected && <Check className="h-3 w-3" />}
                       {attendee}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>

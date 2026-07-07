@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { Check, Loader2, Pencil, Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { Meeting } from "@/lib/meeting-types";
 import { MONO } from "@/lib/meeting-utils";
 import { CopyButton } from "@/components/meeting/copy-button";
 import { SendEmailButton } from "@/components/meeting/send-email-button";
+import { updateAttendeeEmails, updateFollowupText } from "@/services/email-service";
 
 export function FollowUpEmailPanel({
   meeting,
@@ -50,18 +54,10 @@ export function FollowUpEmailPanel({
   async function handleSaveEmails() {
     setSavingEmails(true);
     try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/update-attendee-emails`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          meeting_id: meeting.id,
-          attendee_emails: emailDraft,
-        }),
+      const data = await updateAttendeeEmails({
+        meetingId: meeting.id,
+        attendeeEmails: emailDraft,
       });
-      if (!res.ok) throw new Error("Failed to save");
-      const data = await res.json();
       onUpdate({ attendee_emails: data.attendee_emails });
       setEmailDraft(data.attendee_emails);
       setEditingEmails(false);
@@ -75,17 +71,10 @@ export function FollowUpEmailPanel({
   async function handleSaveText() {
     setSavingText(true);
     try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/update-followup-text`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          meeting_id: meeting.id,
-          follow_up_email: textDraft,
-        }),
+      await updateFollowupText({
+        meetingId: meeting.id,
+        followUpEmail: textDraft,
       });
-      if (!res.ok) throw new Error("Failed to save");
       onUpdate({ follow_up_email: textDraft });
       setEditingText(false);
     } catch {
@@ -123,29 +112,35 @@ export function FollowUpEmailPanel({
             Recipient emails
           </p>
           {!editingEmails ? (
-            <button
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={() => {
                 setEmailDraft(meeting.attendee_emails ?? {});
                 setEditingEmails(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:opacity-80"
+              className="h-auto gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium hover:opacity-80"
               style={{ background: "rgba(255,255,255,0.1)", color: "#d4d4d8" }}
             >
               <Pencil className="h-3 w-3" />
               Edit
-            </button>
+            </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => setEditingEmails(false)}
-                className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="h-auto rounded-lg px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-transparent hover:text-foreground"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={handleSaveEmails}
                 disabled={savingEmails}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:opacity-80 disabled:opacity-50"
+                className="h-auto gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium hover:opacity-80"
                 style={{
                   background: "rgba(52,211,153,0.15)",
                   color: "#34d399",
@@ -157,7 +152,7 @@ export function FollowUpEmailPanel({
                   <Save className="h-3 w-3" />
                 )}
                 Save
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -173,11 +168,13 @@ export function FollowUpEmailPanel({
               return (
                 <div key={name} className="flex items-center gap-3">
                   {!editingEmails && (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-xs"
                       disabled={!hasEmail}
                       onClick={() => toggleSelected(name)}
-                      className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="h-5 w-5 rounded-md hover:bg-transparent disabled:opacity-30"
                       style={{
                         background:
                           isSelected && hasEmail
@@ -199,13 +196,13 @@ export function FollowUpEmailPanel({
                           style={{ color: "#d4d4d8" }}
                         />
                       )}
-                    </button>
+                    </Button>
                   )}
                   <span className="text-[13px] font-medium w-28 shrink-0 truncate">
                     {name}
                   </span>
                   {editingEmails ? (
-                    <input
+                    <Input
                       type="email"
                       placeholder="email@example.com"
                       value={emailDraft[name] ?? ""}
@@ -215,7 +212,7 @@ export function FollowUpEmailPanel({
                           [name]: e.target.value,
                         }))
                       }
-                      className="flex-1 bg-transparent rounded-lg border border-border px-3 py-1.5 text-[13px] outline-none placeholder:text-muted-foreground/40 focus:border-[rgba(255,255,255,0.4)] transition-colors"
+                      className="h-auto flex-1 px-3 py-1.5 text-[13px] placeholder:text-muted-foreground/40"
                     />
                   ) : (
                     <span className="text-[13px] text-muted-foreground">
@@ -251,12 +248,14 @@ export function FollowUpEmailPanel({
             </p>
             <div className="flex items-center gap-2">
               {!editingText && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => {
                     setTextDraft(meeting.follow_up_email ?? "");
                     setEditingText(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:opacity-80"
+                  className="h-auto gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium hover:opacity-80"
                   style={{
                     background: "rgba(255,255,255,0.1)",
                     color: "#d4d4d8",
@@ -264,7 +263,7 @@ export function FollowUpEmailPanel({
                 >
                   <Pencil className="h-3 w-3" />
                   Edit
-                </button>
+                </Button>
               )}
               <SendEmailButton
                 meetingId={meeting.id}
@@ -280,27 +279,31 @@ export function FollowUpEmailPanel({
 
           {editingText ? (
             <div className="space-y-3">
-              <textarea
+              <Textarea
                 value={textDraft}
                 onChange={(e) => setTextDraft(e.target.value)}
                 rows={10}
-                className="w-full rounded-xl p-5 text-[13px] leading-relaxed outline-none resize-y"
+                className="w-full resize-y rounded-xl p-5 text-[13px] leading-relaxed"
                 style={{
                   background: "rgba(255,255,255,0.03)",
                   border: "1px solid rgba(255,255,255,0.3)",
                 }}
               />
               <div className="flex items-center justify-end gap-2">
-                <button
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => setEditingText(false)}
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className="h-auto rounded-lg px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:bg-transparent hover:text-foreground"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={handleSaveText}
                   disabled={savingText}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:opacity-80 disabled:opacity-50"
+                  className="h-auto gap-1.5 rounded-lg px-4 py-1.5 text-[12px] font-medium hover:opacity-80"
                   style={{
                     background: "rgba(52,211,153,0.15)",
                     color: "#34d399",
@@ -312,7 +315,7 @@ export function FollowUpEmailPanel({
                     <Save className="h-3 w-3" />
                   )}
                   Save changes
-                </button>
+                </Button>
               </div>
             </div>
           ) : (

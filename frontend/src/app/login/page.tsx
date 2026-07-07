@@ -16,6 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, CheckCircle, FileText, Search, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { getMeetingsProcessedCount } from "@/services/stats-service";
 
 const BG = { fontFamily: "'Bricolage Grotesque', sans-serif" };
 
@@ -30,17 +31,9 @@ export default function LoginPage() {
   const [meetingsProcessed, setMeetingsProcessed] = useState<number | null>(null);
 
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-    fetch(`${apiUrl}/stats/public`, { signal: AbortSignal.timeout(3000) })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (typeof data?.meetings_processed === "number") {
-          setMeetingsProcessed(data.meetings_processed);
-        }
-      })
-      .catch(() => {
-        // Backend cold start or unreachable — leave the stat hidden.
-      });
+    getMeetingsProcessedCount().then((count) => {
+      if (count !== null) setMeetingsProcessed(count);
+    });
   }, []);
 
   const [loginEmail, setLoginEmail] = useState("");

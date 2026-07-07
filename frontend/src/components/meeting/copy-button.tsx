@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -13,9 +14,11 @@ export function CopyButton({ text }: { text: string }) {
   }, [text]);
 
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="xs"
       onClick={handleCopy}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:opacity-80"
+      className="h-auto gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium hover:opacity-80"
       style={{
         background: copied ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.1)",
         color: copied ? "#34d399" : "#d4d4d8",
@@ -29,6 +32,6 @@ export function CopyButton({ text }: { text: string }) {
       ) : (
         "Copy to clipboard"
       )}
-    </button>
+    </Button>
   );
 }

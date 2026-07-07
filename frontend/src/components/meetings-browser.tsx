@@ -239,13 +239,16 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
             className="pl-8 pr-7 text-[12px]"
           />
           {query && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+              className="absolute right-1 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
             >
               <X className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           )}
         </div>
 

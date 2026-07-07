@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Check, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { BG } from "./constants";
 
 function TestingPlanCard({ name }: { name: string }) {
@@ -19,11 +20,14 @@ function TestingPlanCard({ name }: { name: string }) {
         tier. In the meantime, sign up and try 5 meetings free on our Starter
         plan.
       </p>
-      <Link href="/login" className="mt-6 block">
-        <button className="w-full py-2.5 rounded-xl text-sm font-medium text-foreground border border-border hover:border-[rgba(255,255,255,0.4)] transition-all duration-150">
-          Try the free tier
-        </button>
-      </Link>
+      <Button
+        render={<Link href="/login" />}
+        nativeButton={false}
+        variant="outline"
+        className="mt-6 h-auto w-full rounded-xl border-border bg-transparent py-2.5 text-sm font-medium text-foreground hover:border-[rgba(255,255,255,0.4)] dark:bg-transparent"
+      >
+        Try the free tier
+      </Button>
     </div>
   );
 }
@@ -87,11 +91,14 @@ export function PricingSection() {
                 </li>
               ))}
             </ul>
-            <Link href="/login" className="mt-6 block">
-              <button className="w-full py-2.5 rounded-xl text-sm font-medium text-foreground border border-border hover:border-[rgba(255,255,255,0.4)] transition-all duration-150">
-                {starter.cta}
-              </button>
-            </Link>
+            <Button
+              render={<Link href="/login" />}
+              nativeButton={false}
+              variant="outline"
+              className="mt-6 h-auto w-full rounded-xl border-border bg-transparent py-2.5 text-sm font-medium text-foreground hover:border-[rgba(255,255,255,0.4)] dark:bg-transparent"
+            >
+              {starter.cta}
+            </Button>
           </div>
 
           <TestingPlanCard name="Pro" />

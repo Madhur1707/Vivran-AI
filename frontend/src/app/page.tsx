@@ -14,24 +14,7 @@ import { PricingSection } from "@/components/home-page-components/pricing-sectio
 import { FAQSection } from "@/components/home-page-components/faq-section";
 import { FinalCTA } from "@/components/home-page-components/final-cta";
 import { Footer } from "@/components/home-page-components/footer";
-
-async function getMeetingsProcessed(): Promise<number | null> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-  try {
-    const res = await fetch(`${apiUrl}/stats/public`, {
-      signal: AbortSignal.timeout(3000),
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return typeof data.meetings_processed === "number"
-      ? data.meetings_processed
-      : null;
-  } catch {
-    // Backend cold start or unreachable — don't block the landing page on it.
-    return null;
-  }
-}
+import { getMeetingsProcessedCount } from "@/services/stats-service";
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -40,7 +23,9 @@ export default async function LandingPage() {
   } = await supabase.auth.getUser();
   if (user) redirect("/dashboard");
 
-  const meetingsProcessed = await getMeetingsProcessed();
+  const meetingsProcessed = await getMeetingsProcessedCount({
+    revalidateSeconds: 3600,
+  });
 
   return (
     <div

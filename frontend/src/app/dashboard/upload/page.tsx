@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { normalizePhone } from "@/lib/phone";
 import { compressAudio } from "@/lib/audio-compress";
+import { processMeeting } from "@/services/meeting-service";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -248,18 +249,13 @@ export default function UploadPage() {
 
       setProgress(80);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
       try {
-        await fetch(`${apiUrl}/api/process`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            meeting_id: meeting.id,
-            workspace_id: membership.workspace_id,
-            audio_url: urlData.publicUrl,
-            attendees: attendeeNames,
-            language,
-          }),
+        await processMeeting({
+          meetingId: meeting.id,
+          workspaceId: membership.workspace_id,
+          audioUrl: urlData.publicUrl,
+          attendees: attendeeNames,
+          language,
         });
       } catch {
         // Backend may not be running yet

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { TranscriptSegment } from "@/lib/meeting-types";
 import {
   BG,
@@ -89,10 +90,12 @@ export function TranscriptView({
             const color = getSpeakerColor(speaker, allSpeakers);
             const isSelected = mySpeaker === speaker;
             return (
-              <button
+              <Button
                 key={speaker}
+                variant="ghost"
+                size="xs"
                 onClick={() => setMySpeaker(isSelected ? null : speaker)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer"
+                className="h-auto cursor-pointer gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium hover:bg-transparent"
                 style={{
                   background: isSelected ? `${color}25` : "rgba(255,255,255,0.05)",
                   color: isSelected ? color : "#9999a8",
@@ -110,7 +113,7 @@ export function TranscriptView({
                   {getInitials(speaker)}
                 </span>
                 {speaker}
-              </button>
+              </Button>
             );
           })}
         </div>

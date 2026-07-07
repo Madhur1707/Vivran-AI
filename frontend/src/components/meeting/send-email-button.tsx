@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Check, Loader2, Mail } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { sendFollowupEmail } from "@/services/email-service";
 
 function sameRecipients(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
@@ -30,15 +32,7 @@ export function SendEmailButton({
     if (recipients.length === 0) return;
     setSending(true);
     try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/send-followup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meeting_id: meetingId, recipients }),
-      });
-      if (!res.ok) throw new Error("Failed to send");
-      const data = await res.json();
+      const data = await sendFollowupEmail({ meetingId, recipients });
       onSent(data.recipients ?? recipients);
     } catch {
       // silent
@@ -59,10 +53,12 @@ export function SendEmailButton({
   }
 
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="xs"
       onClick={handleSend}
       disabled={sending}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:opacity-80 disabled:opacity-50"
+      className="h-auto gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium hover:opacity-80"
       style={{
         background: alreadySentToCurrent
           ? "rgba(52,211,153,0.15)"
@@ -86,6 +82,6 @@ export function SendEmailButton({
           Send to {recipients.length} attendee{recipients.length > 1 ? "s" : ""}
         </>
       )}
-    </button>
+    </Button>
   );
 }

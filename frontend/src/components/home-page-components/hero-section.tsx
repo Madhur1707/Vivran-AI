@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Zap, ChevronRight, Play, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { AVATAR_COLORS, BG, INITIALS, MONO } from "./constants";
 
 export function HeroSection() {
@@ -64,13 +65,16 @@ export function HeroSection() {
                 Upload your first meeting
                 <ChevronRight size={15} />
               </Link>
-              <button className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-foreground border border-border hover:border-[rgba(255,255,255,0.4)] hover:bg-[rgba(255,255,255,0.06)] transition-all duration-150 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                className="h-auto w-full gap-2 rounded-full border-border bg-transparent px-6 py-3 text-sm font-medium text-foreground hover:border-[rgba(255,255,255,0.4)] hover:bg-[rgba(255,255,255,0.06)] sm:w-auto dark:bg-transparent"
+              >
                 <Play
                   size={13}
                   className="fill-current text-muted-foreground"
                 />
                 Watch 60s demo
-              </button>
+              </Button>
             </div>
 
             <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-xs text-muted-foreground">

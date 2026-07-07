@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Lock, Mail, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { BG, MONO } from "./constants";
 
 export function TeamsSection() {
@@ -66,14 +67,14 @@ export function TeamsSection() {
           ))}
         </div>
         <div className="mt-10 flex justify-center">
-          <Link href="/login">
-            <button
-              className="px-6 py-2.5 rounded-xl text-sm font-medium text-black transition-all duration-150 hover:opacity-90 cursor-pointer"
-              style={{ background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)" }}
-            >
-              Set up your team
-            </button>
-          </Link>
+          <Button
+            render={<Link href="/login" />}
+            nativeButton={false}
+            className="h-auto cursor-pointer rounded-xl px-6 py-2.5 text-sm font-medium text-black hover:opacity-90"
+            style={{ background: "linear-gradient(135deg, #e4e4e7, #a1a1aa)" }}
+          >
+            Set up your team
+          </Button>
         </div>
       </div>
     </section>

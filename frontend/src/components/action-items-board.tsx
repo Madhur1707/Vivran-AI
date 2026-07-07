@@ -23,6 +23,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { BG, MONO } from "@/lib/meeting-utils";
+import { assignActionItem } from "@/services/action-items-service";
 
 export interface ActionItemRow {
   id: string;
@@ -177,19 +178,13 @@ export function ActionItemsBoard({
           : `Assigning to ${attendee.name}…`
     );
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     try {
-      const res = await fetch(`${apiUrl}/api/actions/assign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action_item_id: item.id,
-          assignee_email: attendee?.email ?? null,
-          assignee_name: attendee?.name ?? null,
-          assigned_by: assignedBy,
-        }),
+      await assignActionItem({
+        actionItemId: item.id,
+        assigneeEmail: attendee?.email ?? null,
+        assigneeName: attendee?.name ?? null,
+        assignedBy,
       });
-      if (!res.ok) throw new Error();
 
       if (!attendee) {
         toast.success("Assignment removed", { id: toastId });
@@ -247,10 +242,11 @@ export function ActionItemsBoard({
               {meetingGroups.map((g) => {
                 const isSelected = g.id === selectedId;
                 return (
-                  <button
+                  <Button
                     key={g.id}
+                    variant="ghost"
                     onClick={() => selectMeeting(g.id)}
-                    className="w-full rounded-lg px-3 py-2.5 text-left transition-colors"
+                    className="block h-auto w-full whitespace-normal rounded-lg px-3 py-2.5 text-left font-normal"
                     style={{
                       background: isSelected
                         ? "rgba(255,255,255,0.08)"
@@ -293,7 +289,7 @@ export function ActionItemsBoard({
                       {" · "}
                       {g.total} {g.total === 1 ? "item" : "items"}
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -405,9 +401,11 @@ export function ActionItemsBoard({
                     className="flex-row items-start gap-3 rounded-xl px-4 py-3"
                     style={CARD}
                   >
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
                       onClick={() => toggleStatus(item)}
-                      className="mt-0.5 shrink-0 transition-transform hover:scale-110"
+                      className="mt-0.5 shrink-0 transition-transform hover:scale-110 hover:bg-transparent"
                       aria-label={
                         item.status === "open" ? "Mark as done" : "Mark as open"
                       }
@@ -420,7 +418,7 @@ export function ActionItemsBoard({
                       ) : (
                         <Circle className="h-4.5 w-4.5 text-muted-foreground/50" />
                       )}
-                    </button>
+                    </Button>
 
                     <div className="min-w-0 flex-1">
                       <p

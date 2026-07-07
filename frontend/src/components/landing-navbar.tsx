@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const NAV_LINKS = ["Features", "How it works", "Pricing", "Teams"];
 
@@ -45,12 +46,15 @@ export function LandingNavbar() {
           </Link>
         </div>
 
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           className="md:hidden text-muted-foreground hover:text-foreground"
           onClick={() => setMobileOpen(!mobileOpen)}
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
         >
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
+        </Button>
       </div>
 
       {mobileOpen && (

@@ -14,6 +14,14 @@ import {
   Square,
 } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  searchAllMeetings,
+  searchMeeting,
+  voiceSearch,
+  type SearchSource,
+} from "@/services/search-service";
 
 const BG = { fontFamily: "'Bricolage Grotesque', sans-serif" };
 const MONO = { fontFamily: "'JetBrains Mono', monospace" };
@@ -26,13 +34,7 @@ interface MeetingOption {
   attendees: string[] | null;
 }
 
-interface Source {
-  speaker: string;
-  text: string;
-  timestamp: number;
-  meeting_title?: string;
-  meeting_id?: string;
-}
+type Source = SearchSource;
 
 function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -115,26 +117,9 @@ export default function SearchPage() {
     setSources([]);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const endpoint = activeMeeting ? "/api/search" : "/api/search-all";
-      const body = activeMeeting
-        ? { meeting_id: activeMeeting.id, query: query.trim() }
-        : { workspace_id: workspaceId, query: query.trim() };
-
-      const res = await fetch(`${apiUrl}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const detail = await res
-          .json()
-          .then((d) => d?.detail)
-          .catch(() => null);
-        throw new Error(typeof detail === "string" ? detail : "");
-      }
-      const data = await res.json();
+      const data = activeMeeting
+        ? await searchMeeting({ meetingId: activeMeeting.id, query: query.trim() })
+        : await searchAllMeetings({ workspaceId: workspaceId!, query: query.trim() });
       setAnswer(data.answer ?? "");
       setSources(data.sources ?? []);
     } catch (err) {
@@ -186,29 +171,11 @@ export default function SearchPage() {
     setSources([]);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const formData = new FormData();
-      formData.append("audio", blob, "query.webm");
-      if (activeMeeting) {
-        formData.append("meeting_id", activeMeeting.id);
-      } else if (workspaceId) {
-        formData.append("workspace_id", workspaceId);
-      }
-
-      const res = await fetch(`${apiUrl}/api/voice-search`, {
-        method: "POST",
-        body: formData,
+      const data = await voiceSearch({
+        audioBlob: blob,
+        meetingId: activeMeeting?.id,
+        workspaceId: activeMeeting ? undefined : workspaceId ?? undefined,
       });
-
-      if (!res.ok) {
-        const detail = await res
-          .json()
-          .then((d) => d?.detail)
-          .catch(() => null);
-        throw new Error(typeof detail === "string" ? detail : "");
-      }
-
-      const data = await res.json();
       setQuery(data.query_text ?? "");
       setAnswer(data.answer ?? "");
       setSources(data.sources ?? []);
@@ -253,18 +220,20 @@ export default function SearchPage() {
               { key: "all", label: "All meetings" },
             ] as const
           ).map((opt) => (
-            <button
+            <Button
               key={opt.key}
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={() => selectScope(opt.key)}
-              className="flex-1 py-1.5 rounded-full text-[11px] font-medium transition-all cursor-pointer"
+              className="h-auto flex-1 rounded-full py-1.5 text-[11px] font-medium hover:bg-transparent"
               style={{
                 background: scope === opt.key ? "rgba(255,255,255,0.15)" : "transparent",
                 color: scope === opt.key ? "#e4e4e7" : "#71717a",
               }}
             >
               {opt.label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -276,16 +245,22 @@ export default function SearchPage() {
                 style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}
               >
                 <Search className="h-3 w-3 shrink-0" style={{ color: "rgba(161,161,170,0.4)" }} />
-                <input
+                <Input
                   placeholder="Filter…"
                   value={meetingFilter}
                   onChange={(e) => setMeetingFilter(e.target.value)}
-                  className="flex-1 min-w-0 bg-transparent py-1.5 text-[12px] outline-none placeholder:text-muted-foreground/40"
+                  className="h-auto flex-1 rounded-none border-0 bg-transparent px-0 py-1.5 text-[12px] shadow-none focus-visible:ring-0 dark:bg-transparent placeholder:text-muted-foreground/40"
                 />
                 {meetingFilter && (
-                  <button onClick={() => setMeetingFilter("")} className="text-[10px] text-muted-foreground hover:text-foreground">
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => setMeetingFilter("")}
+                    className="text-[10px] text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    aria-label="Clear filter"
+                  >
                     ✕
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
@@ -294,10 +269,11 @@ export default function SearchPage() {
               {filteredMeetings.map((m) => {
                 const isSelected = selectedMeeting?.id === m.id;
                 return (
-                  <button
+                  <Button
                     key={m.id}
+                    variant="ghost"
                     onClick={() => selectMeeting(isSelected ? null : m)}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all duration-150"
+                    className="h-auto w-full justify-start gap-2 rounded-lg px-2.5 py-2 text-left font-normal"
                     style={{
                       background: isSelected ? "rgba(255,255,255,0.1)" : "transparent",
                     }}
@@ -317,7 +293,7 @@ export default function SearchPage() {
                     >
                       {m.title}
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
               {filteredMeetings.length === 0 && meetingFilter && (
@@ -368,7 +344,7 @@ export default function SearchPage() {
             }}
           >
             <Search className="h-3.5 w-3.5 shrink-0" style={{ color: "rgba(255,255,255,0.3)" }} />
-            <input
+            <Input
               placeholder={
                 scope === "single"
                   ? activeMeeting
@@ -379,14 +355,16 @@ export default function SearchPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               disabled={(scope === "single" && !activeMeeting) || recording || voiceLoading}
-              className="flex-1 min-w-0 bg-transparent py-3 text-[13px] outline-none placeholder:text-muted-foreground/30 disabled:cursor-not-allowed"
+              className="h-auto flex-1 rounded-none border-0 bg-transparent px-0 py-3 text-[13px] shadow-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:bg-transparent dark:bg-transparent dark:disabled:bg-transparent placeholder:text-muted-foreground/30"
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={recording ? stopRecording : startRecording}
               disabled={voiceDisabled || voiceLoading}
               title={recording ? "Stop recording" : "Ask by voice"}
-              className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+              className="shrink-0 rounded-lg"
               style={{
                 background: recording ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.08)",
                 color: recording ? "#ef4444" : "#a1a1aa",
@@ -395,20 +373,23 @@ export default function SearchPage() {
               {recording
                 ? <Square className="h-3 w-3 fill-current" />
                 : <Mic className="h-3.5 w-3.5" />}
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="ghost"
+              size="icon-sm"
               disabled={searching || voiceLoading || recording || !query.trim() || (scope === "single" && !activeMeeting)}
-              className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+              className="shrink-0 rounded-lg"
               style={{
                 background: query.trim() ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.08)",
                 color: query.trim() ? "#0a0a0a" : "#52525b",
               }}
+              aria-label="Search"
             >
               {searching
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 : <ArrowRight className="h-3.5 w-3.5" />}
-            </button>
+            </Button>
           </div>
         </form>
 

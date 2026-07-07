@@ -27,6 +27,7 @@ import { SummaryTab } from "@/components/meeting/summary-tab";
 import { ActionItemsTab } from "@/components/meeting/action-items-tab";
 import { QuestionsTab } from "@/components/meeting/questions-tab";
 import { FollowUpEmailPanel } from "@/components/meeting/follow-up-email-panel";
+import { processMeeting } from "@/services/meeting-service";
 
 function GeneratingPlaceholder({ label }: { label: string }) {
   return (
@@ -96,21 +97,13 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
       throw new Error("Meeting is missing audio or workspace info");
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-    const res = await fetch(`${apiUrl}/api/process`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        meeting_id: meeting.id,
-        workspace_id: meeting.workspace_id,
-        audio_url: meeting.audio_url,
-        attendees: meeting.attendees ?? [],
-        language: "en",
-      }),
+    await processMeeting({
+      meetingId: meeting.id,
+      workspaceId: meeting.workspace_id,
+      audioUrl: meeting.audio_url,
+      attendees: meeting.attendees ?? [],
+      language: "en",
     });
-    if (!res.ok) {
-      throw new Error("Failed to restart processing");
-    }
 
     // Flip back to queued locally — this also re-arms the realtime
     // subscription (the effect above skips failed/completed meetings).
