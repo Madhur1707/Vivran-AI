@@ -169,7 +169,8 @@ export function TeamPanel({
   const isAdmin = myRole === "admin";
   const adminCount = members.filter((m) => m.role === "admin").length;
 
-  const [currentWorkspaceName, setCurrentWorkspaceName] = useState(workspaceName);
+  const [currentWorkspaceName, setCurrentWorkspaceName] =
+    useState(workspaceName);
   const [editingWorkspaceName, setEditingWorkspaceName] = useState(false);
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState(workspaceName);
   const [savingWorkspaceName, setSavingWorkspaceName] = useState(false);
@@ -181,7 +182,7 @@ export function TeamPanel({
   const [removing, setRemoving] = useState(false);
   const [roleChangeTarget, setRoleChangeTarget] = useState<string | null>(null);
   const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(
-    null
+    null,
   );
 
   const [editTarget, setEditTarget] = useState<Member | null>(null);
@@ -241,7 +242,7 @@ export function TeamPanel({
       router.refresh();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to rename workspace"
+        err instanceof Error ? err.message : "Failed to rename workspace",
       );
     } finally {
       setSavingWorkspaceName(false);
@@ -260,7 +261,7 @@ export function TeamPanel({
 
       toast.success(
         `${member.full_name?.trim() || member.email} is now ${role === "admin" ? "an admin" : "a member"
-        }`
+        }`,
       );
       router.refresh();
     } catch (err) {
@@ -293,7 +294,7 @@ export function TeamPanel({
       router.refresh();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to update details"
+        err instanceof Error ? err.message : "Failed to update details",
       );
     } finally {
       setSavingDetails(false);
@@ -313,7 +314,7 @@ export function TeamPanel({
       router.refresh();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to cancel invite"
+        err instanceof Error ? err.message : "Failed to cancel invite",
       );
     } finally {
       setCancellingInviteId(null);
@@ -345,14 +346,14 @@ export function TeamPanel({
 
       setBulkResult({ invited, skipped });
       toast.success(
-        `Import complete — ${invited.length} invited, ${skipped.length} skipped`
+        `Import complete — ${invited.length} invited, ${skipped.length} skipped`,
       );
 
       setBulkFile(null);
       router.refresh();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to import employees"
+        err instanceof Error ? err.message : "Failed to import employees",
       );
     } finally {
       setBulkUploading(false);
@@ -370,13 +371,13 @@ export function TeamPanel({
       });
 
       toast.success(
-        `Removed ${confirmTarget.full_name?.trim() || confirmTarget.email}`
+        `Removed ${confirmTarget.full_name?.trim() || confirmTarget.email}`,
       );
       setConfirmTarget(null);
       router.refresh();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to remove member"
+        err instanceof Error ? err.message : "Failed to remove member",
       );
     } finally {
       setRemoving(false);
@@ -590,7 +591,7 @@ export function TeamPanel({
                                 onClick={() =>
                                   handleRoleChange(
                                     m,
-                                    m.role === "admin" ? "member" : "admin"
+                                    m.role === "admin" ? "member" : "admin",
                                   )
                                 }
                               >
@@ -632,14 +633,17 @@ export function TeamPanel({
             pendingInvites.length > 0 ? (
               <Sheet>
                 <SheetTrigger
-                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-foreground/10 transition-colors hover:bg-white/[0.03]"
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-foreground/10 transition-colors hover:bg-white/3"
                   style={CARD}
                 >
                   <div className="rounded-lg bg-white/5 p-2 text-muted-foreground">
                     <Clock className="h-4 w-4" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-[17px] font-bold leading-none" style={BG}>
+                    <p
+                      className="text-[17px] font-bold leading-none"
+                      style={BG}
+                    >
                       {pendingInvites.length}
                     </p>
                     <p
@@ -782,8 +786,8 @@ export function TeamPanel({
                     </Button>
                   </div>
                   <p className="text-[10.5px] leading-relaxed text-muted-foreground">
-                    They&apos;ll get an email automatically — signing up
-                    with that exact address joins them right away.
+                    They&apos;ll get an email automatically — signing up with
+                    that exact address joins them right away.
                   </p>
                 </form>
               </CardContent>
@@ -806,9 +810,7 @@ export function TeamPanel({
                   <Input
                     type="file"
                     accept=".xlsx,.xls,.csv"
-                    onChange={(e) =>
-                      setBulkFile(e.target.files?.[0] ?? null)
-                    }
+                    onChange={(e) => setBulkFile(e.target.files?.[0] ?? null)}
                     className="text-[12px] file:text-[12px]"
                   />
                   <Button
@@ -879,8 +881,7 @@ export function TeamPanel({
                     <SheetHeader>
                       <SheetTitle style={BG}>Skipped rows</SheetTitle>
                       <SheetDescription>
-                        These rows from your last upload weren&apos;t
-                        invited.
+                        These rows from your last upload weren&apos;t invited.
                       </SheetDescription>
                     </SheetHeader>
                     <div className="-mx-4 flex-1 divide-y divide-border overflow-y-auto">
@@ -928,8 +929,8 @@ export function TeamPanel({
                   Your access
                 </CardTitle>
                 <CardDescription className="text-[11.5px] leading-relaxed">
-                  You can see meetings you uploaded and meetings where you
-                  were an attendee. Ask your workspace admin to invite more
+                  You can see meetings you uploaded and meetings where you were
+                  an attendee. Ask your workspace admin to invite more
                   teammates.
                 </CardDescription>
               </CardHeader>
@@ -999,7 +1000,10 @@ export function TeamPanel({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-phone">
-                Phone <span className="text-muted-foreground font-normal">(optional)</span>
+                Phone{" "}
+                <span className="text-muted-foreground font-normal">
+                  (optional)
+                </span>
               </Label>
               <Input
                 id="edit-phone"

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import httpx
@@ -64,16 +65,38 @@ SPEECH_RULES = """- Answer based only on what's in the excerpts. If the answer i
 - Write the answer as natural spoken sentences, the way you'd say it out loud to someone — no bullet points, no numbered lists, and don't read out speaker names or timestamps inline.
 - Be concise: a few sentences."""
 
-SINGLE_MEETING_RULES = """- Answer based only on what's in the excerpts. If the answer isn't there, say so.
-- The excerpts are only parts of the meeting, so never claim something wasn't discussed — say it doesn't appear in the retrieved excerpts.
-- Quote the relevant parts directly.
-- Mention who said it and at what timestamp.
-- Be concise and direct."""
+# Shared formatting contract for the on-screen (non-speech) answers. The
+# worked example matters more than the rules: without it the model tends to
+# reply with a lazy one-liner ("X discussed several points") instead of
+# actually extracting the substance from the excerpts.
+_MARKDOWN_FORMAT = """FORMAT THE ANSWER AS DETAILED, STRUCTURED MARKDOWN. This is required:
+- NEVER answer with a vague one-liner such as "X discussed several points" or "the agenda was covered". Read the excerpts and spell out the ACTUAL substance.
+- Open with ONE short sentence that directly answers the question.
+- Then a blank line, then enumerate each distinct point, decision, question, suggestion, number, or next step as its own `-` bullet, paraphrased clearly. Use **bold** for key terms, names, and dates.
+- Group bullets under `###` sub-headings (e.g. `### Decisions`, `### Open questions`, `### Next steps`) when the answer spans more than one topic.
+- Attribute each point to who said it and roughly when (the timestamp) where it helps.
+- Give a genuinely complete answer — as many bullets as the excerpts support, not a summary.
 
-CROSS_MEETING_RULES = """- Answer based only on what's in the excerpts. If the answer isn't there, say so.
-- Quote the relevant parts directly.
-- Mention which meeting and who said it, with the timestamp.
-- Be concise and direct."""
+Example of the required SHAPE (copy the structure, NOT this content):
+
+Priya walked through the launch plan and flagged a couple of risks.
+
+### Decisions
+- Agreed to **ship the beta on Friday** once QA signs off _(Priya, 4:12)_.
+
+### Risks & open questions
+- The **payments integration is still untested** and may slip _(Priya, 6:30)_.
+- Unclear whether **marketing has the assets ready** — not resolved in these excerpts _(Priya, 7:05)_."""
+
+SINGLE_MEETING_RULES = f"""- Answer based only on what's in the excerpts. If the answer genuinely isn't there, say so.
+- The excerpts are only parts of the meeting, so never claim something wasn't discussed — say it doesn't appear in the retrieved excerpts.
+
+{_MARKDOWN_FORMAT}"""
+
+CROSS_MEETING_RULES = f"""- Answer based only on what's in the excerpts. If the answer genuinely isn't there, say so.
+- When the answer draws on more than one meeting, add a `### <meeting name>` sub-heading per meeting.
+
+{_MARKDOWN_FORMAT}"""
 
 
 def _answer_rules(speech_style: bool, default_rules: str) -> str:
@@ -91,7 +114,7 @@ async def ask_llm(prompt: str, *, base_url: str, api_key: str, model: str) -> di
             json={
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.2,
+                "temperature": 0.1,
                 "response_format": {"type": "json_object"},
             },
         )
@@ -99,6 +122,29 @@ async def ask_llm(prompt: str, *, base_url: str, api_key: str, model: str) -> di
 
     content = response.json()["choices"][0]["message"]["content"]
     return json.loads(content)
+
+
+# The written answer is generated WITHOUT JSON mode. In json_object mode the
+# model reliably offloads all the detail into the "sources" array and leaves
+# "answer" a lazy one-liner ("X discussed several points") that ignores the
+# Markdown formatting rules. A plain-text completion honours the structure.
+async def ask_llm_text(prompt: str, *, base_url: str, api_key: str, model: str) -> str:
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.post(
+            base_url,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3,
+            },
+        )
+        response.raise_for_status()
+
+    return response.json()["choices"][0]["message"]["content"].strip()
 
 
 async def _search_meeting(
@@ -125,38 +171,43 @@ async def _search_meeting(
     title = result.data.get("title", "Untitled")
 
     try:
-        # A long meeting's full transcript doesn't fit in one request, so
-        # retrieve the chunks matching the question (same FTS as /search-all,
-        # scoped to this meeting).
-        words = significant_words(req.query)
-        tsquery = " | ".join(words) if words else req.query
-
-        chunk_result = (
+        all_result = (
             supabase.table("meeting_chunks")
             .select("chunk_index, speaker, start_time, text")
             .eq("meeting_id", req.meeting_id)
-            .filter("search_vector", "fts(simple)", tsquery)
             .order("chunk_index")
-            .limit(MAX_CONTEXT_CHUNKS)
             .execute()
         )
-        chunks = chunk_result.data or []
+        all_chunks = all_result.data or []
 
-        # Broad questions ("what was the agenda?") often match no chunk by
-        # keyword — fall back to an even sample of the whole meeting.
-        if not chunks:
-            all_result = (
+        if all_chunks and len(all_chunks) <= MAX_CONTEXT_CHUNKS:
+            # The whole meeting fits in one request, so send all of it. Keyword
+            # retrieval would only pull a few fragments — no good for questions
+            # that span the meeting ("what did X discuss?", "list the decisions"),
+            # and it also pulls chunks that merely mention a name rather than the
+            # turns actually spoken by that person.
+            chunks = all_chunks
+        elif all_chunks:
+            # Long meeting: retrieve the chunks matching the question (same FTS
+            # as /search-all, scoped to this meeting) so the context stays inside
+            # the request limits. Broad questions often match nothing by keyword —
+            # fall back to an even sample across the whole meeting.
+            words = significant_words(req.query)
+            tsquery = " | ".join(words) if words else req.query
+
+            chunk_result = (
                 supabase.table("meeting_chunks")
                 .select("chunk_index, speaker, start_time, text")
                 .eq("meeting_id", req.meeting_id)
+                .filter("search_vector", "fts(simple)", tsquery)
                 .order("chunk_index")
+                .limit(MAX_CONTEXT_CHUNKS)
                 .execute()
             )
-            chunks = sample_evenly(all_result.data or [], MAX_CONTEXT_CHUNKS)
-
-        # Meetings processed before chunk indexing existed have no rows in
-        # meeting_chunks — chunk the stored transcript on the fly instead.
-        if not chunks:
+            chunks = chunk_result.data or sample_evenly(all_chunks, MAX_CONTEXT_CHUNKS)
+        else:
+            # Meetings processed before chunk indexing existed have no rows in
+            # meeting_chunks — chunk the stored transcript on the fly instead.
             from app.services.transcribe import chunk_transcript
 
             chunks = sample_evenly(chunk_transcript(transcript), MAX_CONTEXT_CHUNKS)
@@ -166,35 +217,37 @@ async def _search_meeting(
             for c in chunks
         )
 
-        prompt = f"""You are a meeting search assistant. Answer the user's question based ONLY on these excerpts from the meeting transcript.
-
-MEETING: {title}
+        context = f"""MEETING: {title}
 EXCERPTS:
 {excerpts}
 
-USER QUESTION: {req.query}
+USER QUESTION: {req.query}"""
 
-Rules:
+        answer_prompt = f"""You are a meeting search assistant. Answer the user's question based ONLY on these excerpts from the meeting transcript.
+
+{context}
+
 {_answer_rules(speech_style, SINGLE_MEETING_RULES)}
-- Return a JSON object with:
-{{
-  "answer": "your answer to the question",
-  "sources": [
-    {{"speaker": "who said it", "text": "exact quote from transcript", "timestamp": timestamp_in_seconds}}
-  ]
-}}
-Return ONLY valid JSON."""
 
-        data = await ask_llm(
-            prompt,
-            base_url=llm_base_url,
-            api_key=llm_api_key or settings.groq_api_key,
-            model=llm_model,
+Write ONLY the answer itself — no preamble, no "Here is", no JSON."""
+
+        sources_prompt = f"""From these meeting excerpts, pick the quotes that best support answering the question.
+
+{context}
+
+Return ONLY valid JSON:
+{{"sources": [{{"speaker": "who said it", "text": "exact quote from an excerpt", "timestamp": timestamp_in_seconds}}]}}
+Pick up to 4 of the most relevant quotes. Use the exact speaker label and timestamp from the excerpt's `[123s | Name]` header. If nothing is relevant, return {{"sources": []}}."""
+
+        api_key = llm_api_key or settings.groq_api_key
+        answer, sources_data = await asyncio.gather(
+            ask_llm_text(answer_prompt, base_url=llm_base_url, api_key=api_key, model=llm_model),
+            ask_llm(sources_prompt, base_url=llm_base_url, api_key=api_key, model=llm_model),
         )
 
         return {
-            "answer": data.get("answer", ""),
-            "sources": data.get("sources", []),
+            "answer": answer,
+            "sources": sources_data.get("sources", []),
             "meeting_title": title,
         }
     except httpx.HTTPStatusError as e:
@@ -283,40 +336,42 @@ async def _search_all_meetings(
             for c in chunks
         )
 
-        prompt = f"""You are a meeting search assistant. Answer the user's question based ONLY on these excerpts pulled from the user's past meetings.
-
-EXCERPTS:
+        context = f"""EXCERPTS:
 {chunks_text}
 
-USER QUESTION: {req.query}
+USER QUESTION: {req.query}"""
 
-Rules:
+        answer_prompt = f"""You are a meeting search assistant. Answer the user's question based ONLY on these excerpts pulled from the user's past meetings.
+
+{context}
+
 {_answer_rules(speech_style, CROSS_MEETING_RULES)}
-- Return a JSON object with:
-{{
-  "answer": "your answer to the question",
-  "sources": [
-    {{"meeting_title": "which meeting", "speaker": "who said it", "text": "exact quote", "timestamp": timestamp_in_seconds}}
-  ]
-}}
-Return ONLY valid JSON."""
 
-        data = await ask_llm(
-            prompt,
-            base_url=llm_base_url,
-            api_key=llm_api_key or settings.groq_api_key,
-            model=llm_model,
+Write ONLY the answer itself — no preamble, no "Here is", no JSON."""
+
+        sources_prompt = f"""From these excerpts pulled from the user's past meetings, pick the quotes that best support answering the question.
+
+{context}
+
+Return ONLY valid JSON:
+{{"sources": [{{"meeting_title": "which meeting", "speaker": "who said it", "text": "exact quote from an excerpt", "timestamp": timestamp_in_seconds}}]}}
+Pick up to 5 of the most relevant quotes. Use the exact meeting title, speaker, and timestamp from the excerpt's `[Meeting: ... | Name | 123s]` header. If nothing is relevant, return {{"sources": []}}."""
+
+        api_key = llm_api_key or settings.groq_api_key
+        answer, sources_data = await asyncio.gather(
+            ask_llm_text(answer_prompt, base_url=llm_base_url, api_key=api_key, model=llm_model),
+            ask_llm(sources_prompt, base_url=llm_base_url, api_key=api_key, model=llm_model),
         )
 
         meeting_id_by_title = {
             (c.get("meetings") or {}).get("title", "Untitled").strip(): c["meeting_id"] for c in chunks
         }
-        sources = data.get("sources", [])
+        sources = sources_data.get("sources", [])
         for s in sources:
             s["meeting_id"] = meeting_id_by_title.get((s.get("meeting_title") or "").strip())
 
         return {
-            "answer": data.get("answer", ""),
+            "answer": answer,
             "sources": sources,
         }
     except Exception as e:

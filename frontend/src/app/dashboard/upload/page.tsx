@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { normalizePhone } from "@/lib/phone";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { PageLoader } from "@/components/ui/page-loader";
 import {
   Upload,
   FileAudio,
@@ -50,6 +51,7 @@ const LANGUAGES = [
 
 export default function UploadPage() {
   const router = useRouter();
+  const [initialLoading, setInitialLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [attendees, setAttendees] = useState<
@@ -284,6 +286,14 @@ export default function UploadPage() {
   const isReady = !!file && !!title.trim() && filledAttendees.length > 0;
   const languageLabel =
     LANGUAGES.find((l) => l.code === language)?.label ?? "English";
+
+  useEffect(() => {
+    setInitialLoading(false);
+  }, []);
+
+  if (initialLoading) {
+    return <PageLoader />;
+  }
 
   return (
     <div className="space-y-4">
