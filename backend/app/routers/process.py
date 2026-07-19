@@ -26,29 +26,30 @@ async def start_processing(
 ):
     workspace_id = await require_meeting_access(req.meeting_id, user)
 
-    # audio_url and attendees are read from the meeting row rather than taken
-    # from the request. Both callers write them at insert time (under RLS), and
-    # accepting a caller-supplied audio_url would let anyone point this at an
-    # arbitrary URL and bill the fetch and transcription to us.
+    # The audio location and attendees are read from the meeting row rather
+    # than taken from the request. Both callers write them at insert time
+    # (under RLS), and accepting a caller-supplied location would let anyone
+    # point this at an arbitrary URL and bill the fetch and transcription to us.
     supabase = get_supabase()
     result = await asyncio.to_thread(
         lambda: supabase.table("meetings")
-        .select("audio_url, attendees")
+        .select("audio_url, audio_path, attendees")
         .eq("id", req.meeting_id)
         .single()
         .execute()
     )
-    audio_url = (result.data or {}).get("audio_url")
-    if not audio_url:
+    row = result.data or {}
+    if not row.get("audio_path") and not row.get("audio_url"):
         raise HTTPException(status_code=400, detail="This meeting has no audio to process")
 
     background_tasks.add_task(
         process_meeting,
         req.meeting_id,
         workspace_id,
-        audio_url,
-        (result.data or {}).get("attendees") or [],
+        row.get("audio_url"),
+        row.get("attendees") or [],
         req.language,
+        row.get("audio_path"),
     )
     return {"status": "processing", "meeting_id": req.meeting_id}
 

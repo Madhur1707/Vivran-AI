@@ -25,3 +25,17 @@ export async function remapSpeakers(params: {
   });
   if (!res.ok) throw new Error("Failed to save");
 }
+
+/** Irreversible: removes the audio, transcript, action items and search index. */
+export async function deleteMeeting(meetingId: string): Promise<void> {
+  const res = await apiPostJson("/api/meetings/delete", {
+    meeting_id: meetingId,
+  });
+  if (!res.ok) {
+    const detail = await res
+      .json()
+      .then((d) => d?.detail)
+      .catch(() => null);
+    throw new Error(typeof detail === "string" ? detail : "Failed to delete meeting");
+  }
+}

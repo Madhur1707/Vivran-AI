@@ -1,12 +1,9 @@
 import asyncio
 import httpx
 import re
-import tempfile
-import os
 import json
 import traceback
 from datetime import datetime, timezone
-from pathlib import Path
 
 from app.config import settings
 
@@ -89,7 +86,12 @@ Rules:
 
 
 async def process_meeting(
-    meeting_id: str, workspace_id: str, audio_url: str, attendees: list[str], language: str = "en"
+    meeting_id: str,
+    workspace_id: str,
+    audio_url: str | None,
+    attendees: list[str],
+    language: str = "en",
+    audio_path: str | None = None,
 ):
     from supabase import create_client
 
@@ -127,7 +129,9 @@ async def process_meeting(
             print(f"[{meeting_id}] Reusing saved transcript ({len(transcript_with_speakers)} segments)")
         else:
             set_stage("Transcribing audio")
-            transcript_segments = await transcribe_audio(audio_url, language)
+            transcript_segments = await transcribe_audio(
+                audio_url, language, audio_path=audio_path, supabase=supabase
+            )
             print(f"[{meeting_id}] Got {len(transcript_segments)} segments")
             transcript_with_speakers = assign_speakers(transcript_segments, attendees)
 
@@ -187,77 +191,95 @@ async def process_meeting(
         }).eq("id", meeting_id).execute()
 
 
-async def transcribe_audio(audio_url: str, language: str = "en") -> list[dict]:
-    tmp_path = None
-    try:
-        async with httpx.AsyncClient(timeout=300) as client:
-            response = await client.get(audio_url)
-            response.raise_for_status()
+AUDIO_BUCKET = "meeting-audio"
 
-        suffix = ".mp3"
-        if ".wav" in audio_url:
-            suffix = ".wav"
-        elif ".m4a" in audio_url:
-            suffix = ".m4a"
-        elif ".mp4" in audio_url:
-            suffix = ".mp4"
-        elif ".ogg" in audio_url:
-            suffix = ".ogg"
-        elif ".webm" in audio_url:
-            suffix = ".webm"
+AUDIO_SUFFIXES = (".wav", ".m4a", ".mp4", ".ogg", ".webm", ".mp3")
 
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(response.content)
-            tmp_path = tmp.name
 
-        async with httpx.AsyncClient(timeout=300) as client:
-            with open(tmp_path, "rb") as audio_file:
-                deepgram_response = await client.post(
-                    "https://api.deepgram.com/v1/listen",
-                    headers={
-                        "Authorization": f"Token {settings.deepgram_api_key}",
-                        "Content-Type": f"audio/{suffix.lstrip('.')}",
-                    },
-                    params={
-                        "model": "nova-3",
-                        "smart_format": "true",
-                        "diarize": "true",
-                        "punctuate": "true",
-                        "utterances": "true",
-                        **({"detect_language": "true"} if language == "multi" else {"language": language}),
-                    },
-                    content=audio_file.read(),
-                )
-                deepgram_response.raise_for_status()
+def _audio_suffix(location: str | None) -> str:
+    for suffix in AUDIO_SUFFIXES:
+        if location and suffix in location:
+            return suffix
+    return ".mp3"
 
-        result = deepgram_response.json()
 
-        segments = []
-        utterances = result.get("results", {}).get("utterances", [])
+async def _fetch_audio(
+    audio_url: str | None, audio_path: str | None, supabase
+) -> tuple[bytes, str]:
+    """Return the recording's bytes and its file suffix.
 
-        for utt in utterances:
+    Prefers the storage path over the URL so the audio bucket can stay private
+    — a public bucket serves every recording to anyone who has, or can guess,
+    its URL. The URL branch is only for meetings saved before audio_path was
+    recorded.
+    """
+    if audio_path:
+        audio_bytes = await asyncio.to_thread(
+            lambda: supabase.storage.from_(AUDIO_BUCKET).download(audio_path)
+        )
+        return audio_bytes, _audio_suffix(audio_path)
+
+    if not audio_url:
+        raise ValueError("Meeting has neither an audio path nor an audio URL")
+
+    async with httpx.AsyncClient(timeout=300) as client:
+        response = await client.get(audio_url)
+        response.raise_for_status()
+    return response.content, _audio_suffix(audio_url)
+
+
+async def transcribe_audio(
+    audio_url: str | None,
+    language: str = "en",
+    *,
+    audio_path: str | None = None,
+    supabase=None,
+) -> list[dict]:
+    audio_bytes, suffix = await _fetch_audio(audio_url, audio_path, supabase)
+
+    async with httpx.AsyncClient(timeout=300) as client:
+        deepgram_response = await client.post(
+            "https://api.deepgram.com/v1/listen",
+            headers={
+                "Authorization": f"Token {settings.deepgram_api_key}",
+                "Content-Type": f"audio/{suffix.lstrip('.')}",
+            },
+            params={
+                "model": "nova-3",
+                "smart_format": "true",
+                "diarize": "true",
+                "punctuate": "true",
+                "utterances": "true",
+                **({"detect_language": "true"} if language == "multi" else {"language": language}),
+            },
+            content=audio_bytes,
+        )
+        deepgram_response.raise_for_status()
+
+    result = deepgram_response.json()
+
+    segments = []
+    utterances = result.get("results", {}).get("utterances", [])
+
+    for utt in utterances:
+        segments.append({
+            "speaker": utt.get("speaker", 0),
+            "text": utt.get("transcript", "").strip(),
+            "start": utt.get("start", 0),
+            "end": utt.get("end", 0),
+        })
+
+    if not segments:
+        alt = result.get("results", {}).get("channels", [{}])[0].get("alternatives", [{}])[0]
+        if alt.get("transcript"):
             segments.append({
-                "speaker": utt.get("speaker", 0),
-                "text": utt.get("transcript", "").strip(),
-                "start": utt.get("start", 0),
-                "end": utt.get("end", 0),
+                "speaker": 0,
+                "text": alt["transcript"].strip(),
+                "start": 0,
+                "end": 0,
             })
 
-        if not segments:
-            alt = result.get("results", {}).get("channels", [{}])[0].get("alternatives", [{}])[0]
-            if alt.get("transcript"):
-                segments.append({
-                    "speaker": 0,
-                    "text": alt["transcript"].strip(),
-                    "start": 0,
-                    "end": 0,
-                })
-
-        return segments
-
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    return segments
 
 
 # Groq free tier allows 12k tokens/minute per model, and that budget covers

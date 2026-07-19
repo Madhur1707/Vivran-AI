@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -13,8 +15,19 @@ import {
   Lightbulb,
   Loader2,
   Mail,
+  Trash2,
   Users,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import type { Meeting, TranscriptSegment } from "@/lib/meeting-types";
 import { BG, MONO } from "@/lib/meeting-utils";
@@ -27,7 +40,7 @@ import { SummaryTab } from "@/components/meeting/summary-tab";
 import { ActionItemsTab } from "@/components/meeting/action-items-tab";
 import { QuestionsTab } from "@/components/meeting/questions-tab";
 import { FollowUpEmailPanel } from "@/components/meeting/follow-up-email-panel";
-import { processMeeting } from "@/services/meeting-service";
+import { deleteMeeting, processMeeting } from "@/services/meeting-service";
 
 function GeneratingPlaceholder({ label }: { label: string }) {
   return (
@@ -46,6 +59,9 @@ function GeneratingPlaceholder({ label }: { label: string }) {
 
 export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
   const [meeting, setMeeting] = useState<Meeting>(initial);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
 
   const hasTranscript = !!meeting.transcript?.length;
   // Transcript is saved before analysis runs, so we can show it while the
@@ -105,6 +121,24 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
     // Flip back to queued locally — this also re-arms the realtime
     // subscription (the effect above skips failed/completed meetings).
     setMeeting((prev) => ({ ...prev, status: "queued" }));
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await deleteMeeting(meeting.id);
+      toast.success("Meeting deleted");
+      // replace() so Back doesn't return to a detail page that no longer
+      // exists; refresh() so the dashboard list re-fetches without it.
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete meeting"
+      );
+      setDeleting(false);
+      setConfirmingDelete(false);
+    }
   }
 
   function handleSpeakersMapped(
@@ -197,8 +231,55 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
             )}
           </div>
         </div>
-        <StatusBadge status={meeting.status} />
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge status={meeting.status} />
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => setConfirmingDelete(true)}
+            className="cursor-pointer text-muted-foreground hover:text-destructive"
+            aria-label="Delete meeting"
+            title="Delete meeting"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
+
+      <Dialog
+        open={confirmingDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setConfirmingDelete(false);
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle style={BG}>Delete this meeting?</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">
+                {meeting.title}
+              </span>{" "}
+              and everything from it — the recording, transcript, summary,
+              action items and search history — will be permanently deleted.
+              This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" size="sm" />}>
+              Cancel
+            </DialogClose>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting && <Loader2 className="animate-spin" />}
+              Delete permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {meeting.status === "queued" ||
       (meeting.status === "processing" && !hasTranscript) ? (

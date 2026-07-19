@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Clock,
   Users,
@@ -9,16 +11,28 @@ import {
   Search,
   ArrowUpDown,
   Filter,
+  Loader2,
+  Trash2,
   X,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { deleteMeeting } from "@/services/meeting-service";
 import { cn } from "@/lib/utils";
 
 const BG = { fontFamily: "'Bricolage Grotesque', sans-serif" };
@@ -130,17 +144,46 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sort, setSort] = useState<SortValue>("newest");
+  const [confirmTarget, setConfirmTarget] = useState<Meeting | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  // `meetings` is a server-component prop, so a deleted card would reappear
+  // until the route re-renders. Track removals locally and drop them on sight.
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const router = useRouter();
+
+  const visible = useMemo(
+    () => meetings.filter((m) => !deletedIds.has(m.id)),
+    [meetings, deletedIds]
+  );
+
+  async function handleDelete() {
+    if (!confirmTarget) return;
+    setDeleting(true);
+    try {
+      await deleteMeeting(confirmTarget.id);
+      setDeletedIds((prev) => new Set(prev).add(confirmTarget.id));
+      toast.success(`Deleted "${confirmTarget.title}"`);
+      setConfirmTarget(null);
+      router.refresh();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete meeting"
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: meetings.length };
-    for (const m of meetings) {
+    const counts: Record<string, number> = { all: visible.length };
+    for (const m of visible) {
       counts[m.status] = (counts[m.status] ?? 0) + 1;
     }
     return counts;
-  }, [meetings]);
+  }, [visible]);
 
   const filtered = useMemo(() => {
-    let result = meetings;
+    let result = visible;
 
     if (statusFilter !== "all") {
       result = result.filter((m) => m.status === statusFilter);
@@ -187,7 +230,7 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
     }
 
     return sorted;
-  }, [meetings, statusFilter, query, sort]);
+  }, [visible, statusFilter, query, sort]);
 
   const sortLabel =
     SORT_OPTIONS.find((s) => s.value === sort)?.label ?? "Newest first";
@@ -314,8 +357,8 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
       {/* Results count */}
       {(query || statusFilter !== "all") && (
         <p className="text-[12px] text-muted-foreground">
-          {filtered.length} of {meetings.length} meeting
-          {meetings.length !== 1 ? "s" : ""}
+          {filtered.length} of {visible.length} meeting
+          {visible.length !== 1 ? "s" : ""}
         </p>
       )}
 
@@ -333,9 +376,21 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
             const st = statusConfig[meeting.status] ?? statusConfig.queued;
             const attendeeNames = meeting.attendees ?? [];
             return (
-              <Link key={meeting.id} href={`/dashboard/meetings/${meeting.id}`}>
-                <div className="group rounded-xl border border-border bg-card p-4 h-full flex flex-col transition-all duration-200 hover:border-foreground/30 hover:shadow-lg shadow-sm cursor-pointer">
-                  {/* Top: Status + date */}
+              <div
+                key={meeting.id}
+                className="group relative rounded-xl border border-border bg-card p-4 h-full flex flex-col transition-all duration-200 hover:border-foreground/30 hover:shadow-lg shadow-sm"
+              >
+                {/* Stretched overlay rather than a wrapper: nesting the actions
+                    button inside the anchor is invalid HTML, and the anchor
+                    swallowed the menu's own activation. The menu sits above
+                    this via z-10. */}
+                <Link
+                  href={`/dashboard/meetings/${meeting.id}`}
+                  aria-label={meeting.title}
+                  className="absolute inset-0 z-0 rounded-xl cursor-pointer"
+                />
+                <div className="contents">
+                  {/* Top: status + date */}
                   <div className="flex items-center justify-between mb-3">
                     <div
                       className="flex items-center gap-1.5 px-2 py-0.5 rounded-full"
@@ -422,14 +477,65 @@ export function MeetingsBrowser({ meetings }: { meetings: Meeting[] }) {
                         No attendees
                       </span>
                     )}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-foreground/70 transition-colors shrink-0" />
+                    {/* z-10 lifts these above the stretched link overlay so
+                        they receive their own clicks. A single trash button
+                        rather than a menu — there's only one action, and the
+                        confirm dialog already guards it. */}
+                    <div className="relative z-10 flex items-center gap-0.5 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => setConfirmTarget(meeting)}
+                        className="cursor-pointer text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10"
+                        aria-label={`Delete ${meeting.title}`}
+                        title="Delete meeting"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-foreground/70 transition-colors shrink-0" />
+                    </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
       )}
+
+      <Dialog
+        open={confirmTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setConfirmTarget(null);
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle style={BG}>Delete this meeting?</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">
+                {confirmTarget?.title}
+              </span>{" "}
+              and everything from it — the recording, transcript, summary,
+              action items and search history will be permanently deleted.
+              This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" size="sm" />}>
+              Cancel
+            </DialogClose>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting && <Loader2 className="animate-spin" />}
+              Delete permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
