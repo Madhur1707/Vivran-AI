@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # not by CORS.
     cors_origins: str = "https://vivran-ai.vercel.app,http://localhost:3000"
 
+    # Where outbound emails link back to. Invite emails are useless without it.
+    app_url: str = "https://vivran-ai.vercel.app"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

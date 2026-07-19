@@ -11,6 +11,22 @@ async function postJson<T>(
   return data as T;
 }
 
+/**
+ * Joins the signed-in user to any workspace they've been invited to. Safe to
+ * call on every sign-in — it's idempotent and returns 0 when there's nothing
+ * pending. Never throws: a failure here must not block getting into the app.
+ */
+export async function acceptPendingInvites(): Promise<number> {
+  try {
+    const res = await apiPostJson("/api/team/accept-invites", {});
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data.joined ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export interface BulkInviteResult {
   invited: string[];
   skipped: { email: string; reason: string }[];

@@ -1,6 +1,8 @@
+import asyncio
 import csv
 import io
 import re
+import traceback
 
 import httpx
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
@@ -111,8 +113,15 @@ async def _send_invite_email(email: str, role: str, workspace_name: str) -> None
                     "html": (
                         f"<p>You've been invited to join <b>{workspace_name}</b> on Vivran.ai "
                         f"as a <b>{role}</b>.</p>"
-                        f"<p>Sign up at the link below using this exact email address "
-                        f"({email}) to join automatically.</p>"
+                        f"<p>Sign in or create an account using <b>{email}</b> — "
+                        f"the invite is matched on that address, so using a different "
+                        f"one won't join you to the team.</p>"
+                        f'<p><a href="{settings.app_url}/login" '
+                        f'style="display:inline-block;padding:10px 18px;background:#4f46e5;'
+                        f'color:#ffffff;border-radius:8px;text-decoration:none;'
+                        f'font-weight:600">Join {workspace_name}</a></p>'
+                        f'<p style="color:#71717a;font-size:12px">'
+                        f'Or paste this into your browser: {settings.app_url}/login</p>'
                     ),
                 },
             )
@@ -172,6 +181,78 @@ async def invite_member(req: InviteRequest, user: CurrentUser):
         raise HTTPException(status_code=400, detail="This person is already a member")
 
     return {"status": "invited", "email": req.email}
+
+
+@router.post("/team/accept-invites")
+async def accept_invites(user: CurrentUser):
+    """Turn any pending invites addressed to the caller into memberships.
+
+    Called on sign-in rather than only at sign-up. A signup-time hook would
+    miss the common case of someone who already has an account being invited
+    to a workspace later — they'd get the email, sign in, and still not be a
+    member of anything.
+
+    Idempotent: an invite for a workspace the caller already belongs to is
+    marked accepted without touching the membership.
+    """
+    if not user.email:
+        return {"joined": [], "workspace_ids": []}
+
+    email = user.email.strip().lower()
+    supabase = get_supabase()
+
+    def run() -> list[str]:
+        # ilike, not eq: single invites store whatever case the admin typed
+        # (only the bulk importer lowercases), so an exact match would silently
+        # skip them.
+        invites = (
+            supabase.table("workspace_invites")
+            .select("id, workspace_id, role")
+            .ilike("email", email)
+            .eq("status", "pending")
+            .execute()
+        )
+
+        joined: list[str] = []
+        for invite in invites.data or []:
+            workspace_id = invite["workspace_id"]
+
+            existing = (
+                supabase.table("workspace_members")
+                .select("id")
+                .eq("workspace_id", workspace_id)
+                .eq("user_id", user.id)
+                .limit(1)
+                .execute()
+            )
+            if not (existing.data or []):
+                supabase.table("workspace_members").insert({
+                    "workspace_id": workspace_id,
+                    "user_id": user.id,
+                    "email": email,
+                    "role": invite.get("role") or "member",
+                }).execute()
+                joined.append(workspace_id)
+
+            supabase.table("workspace_invites").update(
+                {"status": "accepted"}
+            ).eq("id", invite["id"]).execute()
+
+        return joined
+
+    try:
+        joined = await asyncio.to_thread(run)
+    except Exception:
+        # Never block sign-in on this — the caller fires it on every session
+        # start and ignores the result.
+        print(f"[invites] Accepting invites for {email} failed:")
+        traceback.print_exc()
+        return {"joined": 0, "workspace_ids": []}
+
+    if joined:
+        print(f"[invites] {email} joined {len(joined)} workspace(s)")
+
+    return {"joined": len(joined), "workspace_ids": joined}
 
 
 def _parse_xlsx(content: bytes) -> list[dict]:

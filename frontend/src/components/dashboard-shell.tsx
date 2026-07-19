@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { acceptPendingInvites } from "@/services/team-panel-service";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -52,6 +54,22 @@ export function DashboardShell({
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Once per session, not per navigation — this shell stays mounted across
+  // dashboard routes. Catches people invited after they already had an
+  // account, who would otherwise sign in and belong to nothing.
+  useEffect(() => {
+    acceptPendingInvites().then((joined) => {
+      if (joined > 0) {
+        toast.success(
+          joined === 1
+            ? "You've been added to a workspace you were invited to"
+            : `You've been added to ${joined} workspaces you were invited to`
+        );
+        router.refresh();
+      }
+    });
+  }, [router]);
 
   async function handleSignOut() {
     setSigningOut(true);
