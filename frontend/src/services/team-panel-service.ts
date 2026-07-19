@@ -1,17 +1,11 @@
-function apiUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-}
+import { apiFetch, apiPostJson } from "./api-client";
 
 async function postJson<T>(
   path: string,
   body: unknown,
   fallbackError: string
 ): Promise<T> {
-  const res = await fetch(`${apiUrl()}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const res = await apiPostJson(path, body);
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? fallbackError);
   return data as T;
@@ -23,9 +17,12 @@ export interface BulkInviteResult {
   total_rows: number;
 }
 
+// The API takes the acting user from the bearer token, so none of these send a
+// requester/inviter id — as a body field it was just a claim, and anyone could
+// have set it to a known admin's id.
+
 export function inviteMember(params: {
   workspaceId: string;
-  inviterUserId: string;
   email: string;
   role: "admin" | "member";
 }) {
@@ -33,7 +30,6 @@ export function inviteMember(params: {
     "/api/team/invite",
     {
       workspace_id: params.workspaceId,
-      inviter_user_id: params.inviterUserId,
       email: params.email,
       role: params.role,
     },
@@ -41,25 +37,16 @@ export function inviteMember(params: {
   );
 }
 
-export function renameWorkspace(params: {
-  workspaceId: string;
-  requesterUserId: string;
-  name: string;
-}) {
+export function renameWorkspace(params: { workspaceId: string; name: string }) {
   return postJson<{ status: string; name: string }>(
     "/api/team/update-workspace",
-    {
-      workspace_id: params.workspaceId,
-      requester_user_id: params.requesterUserId,
-      name: params.name,
-    },
+    { workspace_id: params.workspaceId, name: params.name },
     "Failed to rename workspace"
   );
 }
 
 export function updateMemberRole(params: {
   workspaceId: string;
-  requesterUserId: string;
   targetUserId: string;
   role: "admin" | "member";
 }) {
@@ -67,7 +54,6 @@ export function updateMemberRole(params: {
     "/api/team/update-member-role",
     {
       workspace_id: params.workspaceId,
-      requester_user_id: params.requesterUserId,
       target_user_id: params.targetUserId,
       role: params.role,
     },
@@ -77,7 +63,6 @@ export function updateMemberRole(params: {
 
 export function updateMemberDetails(params: {
   workspaceId: string;
-  requesterUserId: string;
   targetUserId: string;
   fullName: string;
   phone: string;
@@ -90,7 +75,6 @@ export function updateMemberDetails(params: {
     "/api/team/update-member-details",
     {
       workspace_id: params.workspaceId,
-      requester_user_id: params.requesterUserId,
       target_user_id: params.targetUserId,
       full_name: params.fullName,
       phone: params.phone,
@@ -101,47 +85,35 @@ export function updateMemberDetails(params: {
 
 export function cancelInvite(params: {
   workspaceId: string;
-  requesterUserId: string;
   inviteId: string;
 }) {
   return postJson<{ status: string }>(
     "/api/team/cancel-invite",
-    {
-      workspace_id: params.workspaceId,
-      requester_user_id: params.requesterUserId,
-      invite_id: params.inviteId,
-    },
+    { workspace_id: params.workspaceId, invite_id: params.inviteId },
     "Failed to cancel invite"
   );
 }
 
 export function removeMember(params: {
   workspaceId: string;
-  requesterUserId: string;
   targetUserId: string;
 }) {
   return postJson<{ status: string }>(
     "/api/team/remove-member",
-    {
-      workspace_id: params.workspaceId,
-      requester_user_id: params.requesterUserId,
-      target_user_id: params.targetUserId,
-    },
+    { workspace_id: params.workspaceId, target_user_id: params.targetUserId },
     "Failed to remove member"
   );
 }
 
 export async function bulkInviteMembers(params: {
   workspaceId: string;
-  inviterUserId: string;
   file: File;
 }): Promise<BulkInviteResult> {
   const formData = new FormData();
   formData.append("workspace_id", params.workspaceId);
-  formData.append("inviter_user_id", params.inviterUserId);
   formData.append("file", params.file);
 
-  const res = await fetch(`${apiUrl()}/api/team/bulk-invite`, {
+  const res = await apiFetch("/api/team/bulk-invite", {
     method: "POST",
     body: formData,
   });

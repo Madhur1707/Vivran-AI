@@ -59,11 +59,9 @@ const CARD = {
 export function ActionItemsBoard({
   initialItems,
   meetings,
-  assignedBy,
 }: {
   initialItems: ActionItemRow[];
   meetings: MeetingInfo[];
-  assignedBy: string;
 }) {
   const [items, setItems] = useState(initialItems);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -183,7 +181,6 @@ export function ActionItemsBoard({
         actionItemId: item.id,
         assigneeEmail: attendee?.email ?? null,
         assigneeName: attendee?.name ?? null,
-        assignedBy,
       });
 
       if (!attendee) {

@@ -1,19 +1,17 @@
-import json
+import asyncio
 import traceback
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
+from app.auth import CurrentUser, require_meeting_access
+from app.db import get_supabase
 from app.services.transcribe import process_meeting, index_meeting_chunks
-from app.config import settings
 
 router = APIRouter()
 
 
 class ProcessRequest(BaseModel):
     meeting_id: str
-    workspace_id: str
-    audio_url: str
-    attendees: list[str]
     language: str = "en"
 
 
@@ -23,9 +21,34 @@ class RemapSpeakersRequest(BaseModel):
 
 
 @router.post("/process")
-async def start_processing(req: ProcessRequest, background_tasks: BackgroundTasks):
+async def start_processing(
+    req: ProcessRequest, background_tasks: BackgroundTasks, user: CurrentUser
+):
+    workspace_id = await require_meeting_access(req.meeting_id, user)
+
+    # audio_url and attendees are read from the meeting row rather than taken
+    # from the request. Both callers write them at insert time (under RLS), and
+    # accepting a caller-supplied audio_url would let anyone point this at an
+    # arbitrary URL and bill the fetch and transcription to us.
+    supabase = get_supabase()
+    result = await asyncio.to_thread(
+        lambda: supabase.table("meetings")
+        .select("audio_url, attendees")
+        .eq("id", req.meeting_id)
+        .single()
+        .execute()
+    )
+    audio_url = (result.data or {}).get("audio_url")
+    if not audio_url:
+        raise HTTPException(status_code=400, detail="This meeting has no audio to process")
+
     background_tasks.add_task(
-        process_meeting, req.meeting_id, req.workspace_id, req.audio_url, req.attendees, req.language
+        process_meeting,
+        req.meeting_id,
+        workspace_id,
+        audio_url,
+        (result.data or {}).get("attendees") or [],
+        req.language,
     )
     return {"status": "processing", "meeting_id": req.meeting_id}
 
@@ -37,13 +60,13 @@ def replace_speakers_in_text(text: str, speaker_map: dict[str, str]) -> str:
 
 
 @router.post("/remap-speakers")
-async def remap_speakers(req: RemapSpeakersRequest):
-    from supabase import create_client
+async def remap_speakers(req: RemapSpeakersRequest, user: CurrentUser):
+    workspace_id = await require_meeting_access(req.meeting_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+    supabase = get_supabase()
 
     result = supabase.table("meetings").select(
-        "workspace_id, transcript, summary, action_items, decisions, open_questions, follow_up_email"
+        "transcript, summary, action_items, decisions, open_questions, follow_up_email"
     ).eq("id", req.meeting_id).single().execute()
 
     if not result.data or not result.data.get("transcript"):
@@ -109,12 +132,10 @@ async def remap_speakers(req: RemapSpeakersRequest):
     # Cross-meeting search reads from meeting_chunks, which was indexed with
     # the raw "Speaker N" labels right after transcription — re-index it now
     # so renamed speakers show up in search results too.
-    workspace_id = result.data.get("workspace_id")
-    if workspace_id:
-        try:
-            index_meeting_chunks(supabase, req.meeting_id, workspace_id, transcript)
-        except Exception:
-            print(f"[{req.meeting_id}] Re-indexing chunks after speaker remap failed:")
-            traceback.print_exc()
+    try:
+        index_meeting_chunks(supabase, req.meeting_id, workspace_id, transcript)
+    except Exception:
+        print(f"[{req.meeting_id}] Re-indexing chunks after speaker remap failed:")
+        traceback.print_exc()
 
     return {"status": "ok", "meeting_id": req.meeting_id}

@@ -205,7 +205,6 @@ export function TeamPanel({
     try {
       await inviteMember({
         workspaceId,
-        inviterUserId: myUserId,
         email: inviteEmail.trim(),
         role: inviteRole,
       });
@@ -232,7 +231,6 @@ export function TeamPanel({
     try {
       const data = await renameWorkspace({
         workspaceId,
-        requesterUserId: myUserId,
         name,
       });
 
@@ -254,7 +252,6 @@ export function TeamPanel({
     try {
       await updateMemberRole({
         workspaceId,
-        requesterUserId: myUserId,
         targetUserId: member.user_id,
         role,
       });
@@ -283,7 +280,6 @@ export function TeamPanel({
     try {
       await updateMemberDetails({
         workspaceId,
-        requesterUserId: myUserId,
         targetUserId: editTarget.user_id,
         fullName: name,
         phone: editPhone.trim() ? normalizePhone(editPhone) : "",
@@ -306,7 +302,6 @@ export function TeamPanel({
     try {
       await cancelInvite({
         workspaceId,
-        requesterUserId: myUserId,
         inviteId: invite.id,
       });
 
@@ -340,7 +335,6 @@ export function TeamPanel({
     try {
       const { invited, skipped } = await bulkInviteMembers({
         workspaceId,
-        inviterUserId: myUserId,
         file: bulkFile,
       });
 
@@ -366,7 +360,6 @@ export function TeamPanel({
     try {
       await removeMember({
         workspaceId,
-        requesterUserId: myUserId,
         targetUserId: confirmTarget.user_id,
       });
 

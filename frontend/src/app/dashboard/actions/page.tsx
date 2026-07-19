@@ -60,17 +60,10 @@ export default async function ActionsPage() {
     .eq("workspace_id", membership.workspace_id)
     .order("created_at", { ascending: false });
 
-  const { data: myProfile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .single();
-
   return (
     <ActionItemsBoard
       initialItems={rows}
       meetings={(meetings ?? []) as MeetingInfo[]}
-      assignedBy={myProfile?.full_name ?? user.email ?? "A teammate"}
     />
   );
 }

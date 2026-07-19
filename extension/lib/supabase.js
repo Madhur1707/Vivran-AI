@@ -124,15 +124,25 @@ export async function startProcessing(payload) {
   for (const delayMs of [0, 5_000, 15_000]) {
     if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
     try {
+      // Fetched per attempt rather than passed in: the retry path can fire
+      // long after the upload, by which point the original access token may
+      // have expired. getValidSession() refreshes when it needs to.
+      const session = await getValidSession();
       const res = await fetch(`${CONFIG.API_URL}/api/process`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(60_000),
       });
       if (res.ok) return true;
+      // A rejected token or a meeting this user can't reach won't start
+      // working on a retry.
+      if (res.status === 401 || res.status === 403) return false;
     } catch {
-      // network error or timeout — retry
+      // network error, timeout, or no session — retry
     }
   }
   return false;

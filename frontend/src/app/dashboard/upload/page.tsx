@@ -254,9 +254,6 @@ export default function UploadPage() {
       try {
         await processMeeting({
           meetingId: meeting.id,
-          workspaceId: membership.workspace_id,
-          audioUrl: urlData.publicUrl,
-          attendees: attendeeNames,
           language,
         });
       } catch {

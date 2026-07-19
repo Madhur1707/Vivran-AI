@@ -5,7 +5,9 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.auth import CurrentUser, require_meeting_access, require_workspace_member
 from app.config import settings
+from app.db import get_supabase
 
 router = APIRouter()
 
@@ -149,6 +151,7 @@ async def ask_llm_text(prompt: str, *, base_url: str, api_key: str, model: str) 
 
 async def _search_meeting(
     req: SearchRequest,
+    user: CurrentUser,
     *,
     llm_base_url: str = GROQ_URL,
     llm_api_key: str | None = None,
@@ -156,9 +159,12 @@ async def _search_meeting(
     speech_style: bool = False,
 ) -> dict:
     import traceback as tb
-    from supabase import create_client
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+    # Checked here rather than in the route so the voice entry point, which
+    # reuses this helper, can't reach a meeting the caller has no access to.
+    await require_meeting_access(req.meeting_id, user)
+
+    supabase = get_supabase()
 
     result = supabase.table("meetings").select(
         "title, transcript, attendees"
@@ -262,12 +268,13 @@ Pick up to 4 of the most relevant quotes. Use the exact speaker label and timest
 
 
 @router.post("/search")
-async def search_meeting(req: SearchRequest):
-    return await _search_meeting(req)
+async def search_meeting(req: SearchRequest, user: CurrentUser):
+    return await _search_meeting(req, user)
 
 
 async def _search_all_meetings(
     req: SearchAllRequest,
+    user: CurrentUser,
     *,
     llm_base_url: str = GROQ_URL,
     llm_api_key: str | None = None,
@@ -275,9 +282,10 @@ async def _search_all_meetings(
     speech_style: bool = False,
 ) -> dict:
     import traceback as tb
-    from supabase import create_client
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+    await require_workspace_member(req.workspace_id, user)
+
+    supabase = get_supabase()
     try:
         words = significant_words(req.query)
         # OR the terms together instead of requiring every single word to
@@ -380,5 +388,5 @@ Pick up to 5 of the most relevant quotes. Use the exact meeting title, speaker, 
 
 
 @router.post("/search-all")
-async def search_all_meetings(req: SearchAllRequest):
-    return await _search_all_meetings(req)
+async def search_all_meetings(req: SearchAllRequest, user: CurrentUser):
+    return await _search_all_meetings(req, user)

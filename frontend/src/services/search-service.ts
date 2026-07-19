@@ -1,6 +1,4 @@
-function apiUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-}
+import { apiFetch, apiPostJson } from "./api-client";
 
 export interface SearchSource {
   speaker: string;
@@ -32,10 +30,9 @@ export async function searchMeeting(params: {
   meetingId: string;
   query: string;
 }): Promise<SearchResult> {
-  const res = await fetch(`${apiUrl()}/api/search`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ meeting_id: params.meetingId, query: params.query }),
+  const res = await apiPostJson("/api/search", {
+    meeting_id: params.meetingId,
+    query: params.query,
   });
   if (!res.ok) await throwDetailedError(res);
   return res.json();
@@ -45,10 +42,9 @@ export async function searchAllMeetings(params: {
   workspaceId: string;
   query: string;
 }): Promise<SearchResult> {
-  const res = await fetch(`${apiUrl()}/api/search-all`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ workspace_id: params.workspaceId, query: params.query }),
+  const res = await apiPostJson("/api/search-all", {
+    workspace_id: params.workspaceId,
+    query: params.query,
   });
   if (!res.ok) await throwDetailedError(res);
   return res.json();
@@ -67,7 +63,7 @@ export async function voiceSearch(params: {
     formData.append("workspace_id", params.workspaceId);
   }
 
-  const res = await fetch(`${apiUrl()}/api/voice-search`, {
+  const res = await apiFetch("/api/voice-search", {
     method: "POST",
     body: formData,
   });

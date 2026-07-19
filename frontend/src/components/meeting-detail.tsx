@@ -93,15 +93,12 @@ export function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
     meeting.attendees.length > 0;
 
   async function handleRetryProcessing() {
-    if (!meeting.workspace_id || !meeting.audio_url) {
-      throw new Error("Meeting is missing audio or workspace info");
+    if (!meeting.audio_url) {
+      throw new Error("Meeting is missing audio");
     }
 
     await processMeeting({
       meetingId: meeting.id,
-      workspaceId: meeting.workspace_id,
-      audioUrl: meeting.audio_url,
-      attendees: meeting.attendees ?? [],
       language: "en",
     });
 

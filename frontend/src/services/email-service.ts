@@ -1,17 +1,11 @@
-function apiUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-}
+import { apiPostJson } from "./api-client";
 
 async function postJson<T>(
   path: string,
   body: unknown,
   fallbackError: string
 ): Promise<T> {
-  const res = await fetch(`${apiUrl()}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const res = await apiPostJson(path, body);
   if (!res.ok) throw new Error(fallbackError);
   return (await res.json()) as T;
 }

@@ -329,11 +329,10 @@ async function uploadRecording(meta) {
     // The slow part on a free-tier backend is waking it up, not uploading —
     // label it so a full progress bar doesn't look like a frozen upload.
     await setState({ uploadStage: "wake" });
+    // workspace, audio URL and attendees are read from the meeting row by the
+    // API, so only the id and language go over the wire.
     const processPayload = {
       meeting_id: meeting.id,
-      workspace_id: workspaceId,
-      audio_url: audioUrl,
-      attendees,
       language: meta.language ?? "en",
     };
     const processingStarted = await startProcessing(processPayload);

@@ -6,7 +6,9 @@ import httpx
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 
+from app.auth import CurrentUser, require_workspace_admin
 from app.config import settings
+from app.db import get_supabase
 
 router = APIRouter()
 
@@ -19,68 +21,55 @@ NAME_HEADERS = {"name", "full name", "employee name"}
 ROLE_HEADERS = {"role", "access", "permission"}
 
 
+# The caller's identity is never taken from the request body — it comes from
+# the verified token, so these carry only the thing being acted on.
 class InviteRequest(BaseModel):
     workspace_id: str
-    inviter_user_id: str
     email: str
     role: str = "member"
 
 
 class RemoveMemberRequest(BaseModel):
     workspace_id: str
-    requester_user_id: str
     target_user_id: str
 
 
 class UpdateWorkspaceRequest(BaseModel):
     workspace_id: str
-    requester_user_id: str
     name: str
 
 
 class UpdateMemberRoleRequest(BaseModel):
     workspace_id: str
-    requester_user_id: str
     target_user_id: str
     role: str
 
 
 class CancelInviteRequest(BaseModel):
     workspace_id: str
-    requester_user_id: str
     invite_id: str
 
 
 class UpdateMemberDetailsRequest(BaseModel):
     workspace_id: str
-    requester_user_id: str
     target_user_id: str
     full_name: str | None = None
     phone: str | None = None
 
 
-def _is_admin(supabase, workspace_id: str, user_id: str) -> bool:
-    result = (
-        supabase.table("workspace_members")
-        .select("role")
-        .eq("workspace_id", workspace_id)
-        .eq("user_id", user_id)
-        .single()
-        .execute()
-    )
-    return bool(result.data and result.data.get("role") == "admin")
-
-
 def _is_only_admin(supabase, workspace_id: str, user_id: str) -> bool:
+    # limit(1) rather than single(): the target may not be a member at all,
+    # and single() raises on an empty match, which would surface as a 500.
     target = (
         supabase.table("workspace_members")
         .select("role")
         .eq("workspace_id", workspace_id)
         .eq("user_id", user_id)
-        .single()
+        .limit(1)
         .execute()
     )
-    if not target.data or target.data.get("role") != "admin":
+    rows = target.data or []
+    if not rows or rows[0].get("role") != "admin":
         return False
 
     admin_count = (
@@ -166,13 +155,10 @@ async def _invite_one(
 
 
 @router.post("/team/invite")
-async def invite_member(req: InviteRequest):
-    from supabase import create_client
+async def invite_member(req: InviteRequest, user: CurrentUser):
+    await require_workspace_admin(req.workspace_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
-
-    if not _is_admin(supabase, req.workspace_id, req.inviter_user_id):
-        raise HTTPException(status_code=403, detail="Only workspace admins can invite members")
+    supabase = get_supabase()
 
     if req.role not in ("admin", "member"):
         raise HTTPException(status_code=400, detail="Invalid role")
@@ -180,7 +166,7 @@ async def invite_member(req: InviteRequest):
     workspace_name = _workspace_name(supabase, req.workspace_id)
 
     result = await _invite_one(
-        supabase, req.workspace_id, req.inviter_user_id, req.email, req.role, workspace_name
+        supabase, req.workspace_id, user.id, req.email, req.role, workspace_name
     )
     if result["status"] == "skipped":
         raise HTTPException(status_code=400, detail="This person is already a member")
@@ -250,16 +236,13 @@ def _rows_to_dicts(header, rows) -> list[dict]:
 
 @router.post("/team/bulk-invite")
 async def bulk_invite_members(
+    user: CurrentUser,
     workspace_id: str = Form(...),
-    inviter_user_id: str = Form(...),
     file: UploadFile = File(...),
 ):
-    from supabase import create_client
+    await require_workspace_admin(workspace_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
-
-    if not _is_admin(supabase, workspace_id, inviter_user_id):
-        raise HTTPException(status_code=403, detail="Only workspace admins can invite members")
+    supabase = get_supabase()
 
     filename = (file.filename or "").lower()
     content = await file.read()
@@ -294,7 +277,7 @@ async def bulk_invite_members(
         if role not in ("admin", "member"):
             role = "member"
 
-        result = await _invite_one(supabase, workspace_id, inviter_user_id, email, role, workspace_name)
+        result = await _invite_one(supabase, workspace_id, user.id, email, role, workspace_name)
         if result["status"] == "invited":
             invited.append(email)
         else:
@@ -304,13 +287,10 @@ async def bulk_invite_members(
 
 
 @router.post("/team/remove-member")
-async def remove_member(req: RemoveMemberRequest):
-    from supabase import create_client
+async def remove_member(req: RemoveMemberRequest, user: CurrentUser):
+    await require_workspace_admin(req.workspace_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
-
-    if not _is_admin(supabase, req.workspace_id, req.requester_user_id):
-        raise HTTPException(status_code=403, detail="Only workspace admins can remove members")
+    supabase = get_supabase()
 
     if _is_only_admin(supabase, req.workspace_id, req.target_user_id):
         raise HTTPException(status_code=400, detail="Cannot remove the only admin")
@@ -323,13 +303,10 @@ async def remove_member(req: RemoveMemberRequest):
 
 
 @router.post("/team/update-workspace")
-async def update_workspace(req: UpdateWorkspaceRequest):
-    from supabase import create_client
+async def update_workspace(req: UpdateWorkspaceRequest, user: CurrentUser):
+    await require_workspace_admin(req.workspace_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
-
-    if not _is_admin(supabase, req.workspace_id, req.requester_user_id):
-        raise HTTPException(status_code=403, detail="Only workspace admins can rename the workspace")
+    supabase = get_supabase()
 
     name = req.name.strip()
     if not name:
@@ -343,13 +320,10 @@ async def update_workspace(req: UpdateWorkspaceRequest):
 
 
 @router.post("/team/update-member-role")
-async def update_member_role(req: UpdateMemberRoleRequest):
-    from supabase import create_client
+async def update_member_role(req: UpdateMemberRoleRequest, user: CurrentUser):
+    await require_workspace_admin(req.workspace_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
-
-    if not _is_admin(supabase, req.workspace_id, req.requester_user_id):
-        raise HTTPException(status_code=403, detail="Only workspace admins can change member roles")
+    supabase = get_supabase()
 
     if req.role not in ("admin", "member"):
         raise HTTPException(status_code=400, detail="Invalid role")
@@ -365,13 +339,10 @@ async def update_member_role(req: UpdateMemberRoleRequest):
 
 
 @router.post("/team/update-member-details")
-async def update_member_details(req: UpdateMemberDetailsRequest):
-    from supabase import create_client
+async def update_member_details(req: UpdateMemberDetailsRequest, user: CurrentUser):
+    await require_workspace_admin(req.workspace_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
-
-    if not _is_admin(supabase, req.workspace_id, req.requester_user_id):
-        raise HTTPException(status_code=403, detail="Only workspace admins can edit member details")
+    supabase = get_supabase()
 
     membership = (
         supabase.table("workspace_members")
@@ -401,13 +372,10 @@ async def update_member_details(req: UpdateMemberDetailsRequest):
 
 
 @router.post("/team/cancel-invite")
-async def cancel_invite(req: CancelInviteRequest):
-    from supabase import create_client
+async def cancel_invite(req: CancelInviteRequest, user: CurrentUser):
+    await require_workspace_admin(req.workspace_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
-
-    if not _is_admin(supabase, req.workspace_id, req.requester_user_id):
-        raise HTTPException(status_code=403, detail="Only workspace admins can cancel invites")
+    supabase = get_supabase()
 
     supabase.table("workspace_invites").delete().eq("id", req.invite_id).eq(
         "workspace_id", req.workspace_id

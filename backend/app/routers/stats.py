@@ -1,15 +1,15 @@
 from fastapi import APIRouter
 
-from app.config import settings
+from app.db import get_supabase
 
 router = APIRouter()
 
 
+# Deliberately unauthenticated: this is the counter on the marketing page, and
+# it exposes a single global number, no workspace data.
 @router.get("/stats/public")
 async def public_stats():
-    from supabase import create_client
-
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+    supabase = get_supabase()
 
     # count is computed from the Content-Range header regardless of the
     # limit, so this stays a cheap query even as the table grows.

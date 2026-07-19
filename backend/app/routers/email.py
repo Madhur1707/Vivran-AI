@@ -2,7 +2,9 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.auth import CurrentUser, require_meeting_access
 from app.config import settings
+from app.db import get_supabase
 
 router = APIRouter()
 
@@ -23,10 +25,10 @@ class UpdateFollowupTextRequest(BaseModel):
 
 
 @router.post("/update-attendee-emails")
-async def update_attendee_emails(req: UpdateAttendeeEmailsRequest):
-    from supabase import create_client
+async def update_attendee_emails(req: UpdateAttendeeEmailsRequest, user: CurrentUser):
+    await require_meeting_access(req.meeting_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+    supabase = get_supabase()
 
     cleaned = {name: email.strip() for name, email in req.attendee_emails.items() if email.strip()}
 
@@ -36,10 +38,10 @@ async def update_attendee_emails(req: UpdateAttendeeEmailsRequest):
 
 
 @router.post("/update-followup-text")
-async def update_followup_text(req: UpdateFollowupTextRequest):
-    from supabase import create_client
+async def update_followup_text(req: UpdateFollowupTextRequest, user: CurrentUser):
+    await require_meeting_access(req.meeting_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+    supabase = get_supabase()
 
     supabase.table("meetings").update({"follow_up_email": req.follow_up_email}).eq("id", req.meeting_id).execute()
 
@@ -47,10 +49,10 @@ async def update_followup_text(req: UpdateFollowupTextRequest):
 
 
 @router.post("/send-followup")
-async def send_followup(req: SendFollowupRequest):
-    from supabase import create_client
+async def send_followup(req: SendFollowupRequest, user: CurrentUser):
+    await require_meeting_access(req.meeting_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+    supabase = get_supabase()
 
     result = supabase.table("meetings").select(
         "title, follow_up_email, attendee_emails"

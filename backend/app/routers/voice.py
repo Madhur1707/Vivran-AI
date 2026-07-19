@@ -2,6 +2,7 @@ import base64
 import httpx
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 
+from app.auth import CurrentUser
 from app.config import settings
 from app.routers.search import (
     SearchRequest,
@@ -28,6 +29,7 @@ CEREBRAS_MODEL = "gpt-oss-120b"
 
 @router.post("/voice-search")
 async def voice_search(
+    user: CurrentUser,
     audio: UploadFile = File(...),
     workspace_id: str | None = Form(None),
     meeting_id: str | None = Form(None),
@@ -77,11 +79,11 @@ async def voice_search(
         )
         if meeting_id:
             search_result = await _search_meeting(
-                SearchRequest(meeting_id=meeting_id, query=query_text), **cerebras_kwargs
+                SearchRequest(meeting_id=meeting_id, query=query_text), user, **cerebras_kwargs
             )
         elif workspace_id:
             search_result = await _search_all_meetings(
-                SearchAllRequest(workspace_id=workspace_id, query=query_text), **cerebras_kwargs
+                SearchAllRequest(workspace_id=workspace_id, query=query_text), user, **cerebras_kwargs
             )
         else:
             raise HTTPException(status_code=400, detail="workspace_id or meeting_id required")

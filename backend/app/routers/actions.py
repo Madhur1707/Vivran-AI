@@ -1,8 +1,12 @@
+import asyncio
+
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.auth import AuthUser, CurrentUser, require_action_item_access
 from app.config import settings
+from app.db import get_supabase
 
 router = APIRouter()
 
@@ -11,14 +15,40 @@ class AssignRequest(BaseModel):
     action_item_id: str
     assignee_email: str | None = None  # null/empty unassigns
     assignee_name: str | None = None
-    assigned_by: str | None = None  # display name or email of the assigner
+
+
+async def _assigner_name(user: AuthUser) -> str:
+    """Who the notification email says assigned the item.
+
+    Read from the authenticated user rather than the request body: a
+    caller-supplied name would let anyone send mail that appears to come from
+    a specific colleague.
+    """
+    def fetch():
+        return (
+            get_supabase()
+            .table("profiles")
+            .select("full_name")
+            .eq("id", user.id)
+            .limit(1)
+            .execute()
+        )
+
+    try:
+        result = await asyncio.to_thread(fetch)
+        rows = result.data or []
+        name = (rows[0].get("full_name") or "").strip() if rows else ""
+    except Exception:
+        name = ""
+
+    return name or user.email or "A teammate"
 
 
 @router.post("/actions/assign")
-async def assign_action_item(req: AssignRequest):
-    from supabase import create_client
+async def assign_action_item(req: AssignRequest, user: CurrentUser):
+    await require_action_item_access(req.action_item_id, user)
 
-    supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+    supabase = get_supabase()
 
     item = (
         supabase.table("action_items")
@@ -50,7 +80,7 @@ async def assign_action_item(req: AssignRequest):
         )
         meeting_title = meeting.data.get("title", "a meeting") if meeting.data else "a meeting"
         deadline = item.data.get("deadline")
-        assigned_by = req.assigned_by or "A teammate"
+        assigned_by = await _assigner_name(user)
 
         try:
             async with httpx.AsyncClient(timeout=30) as client:
