@@ -5,9 +5,14 @@ import tempfile
 import os
 import json
 import traceback
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.config import settings
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 ANALYSIS_PROMPT = """You are a meeting analyst. Analyze this meeting transcript and extract structured insights.
 
@@ -93,7 +98,13 @@ async def process_meeting(
     def set_stage(stage: str):
         print(f"[{meeting_id}] {stage}")
         try:
-            supabase.table("meetings").update({"processing_stage": stage}).eq("id", meeting_id).execute()
+            # Doubles as the heartbeat the stalled-meeting reaper watches, so a
+            # long-but-healthy run keeps pushing its deadline out. See
+            # sql/005_reap_stalled_meetings.sql.
+            supabase.table("meetings").update({
+                "processing_stage": stage,
+                "last_progress_at": _now(),
+            }).eq("id", meeting_id).execute()
         except Exception:
             traceback.print_exc()
 
@@ -103,6 +114,8 @@ async def process_meeting(
             "status": "processing",
             "processing_stage": "Preparing",
             "error_detail": None,
+            "processing_started_at": _now(),
+            "last_progress_at": _now(),
         }).eq("id", meeting_id).execute()
 
         # A failed run may have already saved a transcript — reuse it so a
